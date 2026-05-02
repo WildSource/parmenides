@@ -18,12 +18,12 @@ logInfo msg
 logWarning :: String -> IO ()
 logWarning msg
   =  setSGR [SetColor Foreground Vivid Yellow]
-  >> putStrLn msg
+  >> putStrLn ("  " ++ msg)
   >> setSGR [Reset]
 
 logError :: String -> IO ()
 logError msg
   =  setSGR [SetColor Foreground Vivid Red]
-  >> putStrLn msg
+  >> putStrLn ("    " ++ msg)
   >> setSGR [Reset]
 

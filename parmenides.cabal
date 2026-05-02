@@ -70,7 +70,9 @@ executable parmenides
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.18.3.0,
                       directory,
-                      ansi-terminal ^>=1.1.5
+                      filepath,
+                      ansi-terminal ^>=1.1.5,
+                      load-env ^>=0.2.1.0
 
     -- Directories containing source files.
     hs-source-dirs:   app
