@@ -20,6 +20,9 @@ import System.FilePath.Posix (takeExtension)
 import System.Console.ANSI.Types (Color (Green))
 import Control.Monad (unless)
 
+help :: IO ()
+help = logInfo "This is supposed to be the help function"
+
 migrationFolder :: IO ()
 migrationFolder = do
   doesExist <- doesDirectoryExist migrationDir
