@@ -71,6 +71,7 @@ executable parmenides
     build-depends:    base ^>=4.18.3.0,
                       directory,
                       filepath,
+                      transformers,
                       ansi-terminal ^>=1.1.5,
                       load-env ^>=0.2.1.0
 

@@ -10,6 +10,8 @@ import System.FilePath.Posix (takeExtension)
 import System.Environment (getEnv)
 import Data.List (partition)
 import Control.Monad (unless)
+import Control.Monad.Trans.Maybe
+import Control.Monad.IO.Class
 
 -- From libraries
 import LoadEnv (loadEnv)
@@ -19,7 +21,7 @@ import System.Console.ANSI.Types (Color (Green))
 import Log (applyColor, logInfo, logWarning)
 
 migrationDir :: String
-migrationDir = "./migration"
+migrationDir = "./migrations"
 
 migrationFolder :: IO ()
 migrationFolder = do
@@ -51,32 +53,24 @@ data Flavor
   | MySQL
   | PostgreSQL
 
-getFlavorFromString :: String -> Maybe Flavor
-getFlavorFromString str =
+getFlavor :: String -> Maybe Flavor
+getFlavor str =
   case str of
     "sqlite"     -> Just SQLite
     "mysql"      -> Just MySQL
     "postgresql" -> Just PostgreSQL
     _ -> Nothing
 
-getDbFlavor :: IO Flavor
-getDbFlavor = do
-  
-
-runMigrations :: String -> [String] -> IO ()
+runMigrations :: Flavor -> [String] -> IO ()
 runMigrations = undefined
-      
+
+app :: MaybeT IO ()
+app = undefined
+                
 main :: IO ()
 main = do
-  loadEnv
-  
-  migrationFolder
-
-  migrations <- scanMigrations
-
-  flavor <- getEnv "DB_FLAVOR"
-
-  runMigrations flavor migrations
-
-  print migrations
+  result <- runMaybeT app
+  case result of
+    Just () -> putStrLn ""
+    Nothing -> putStrLn "Parmenides early exit due to an error."
   
