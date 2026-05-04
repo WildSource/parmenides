@@ -17,6 +17,7 @@ import Log
   ( applyColor
   , logInfo
   , logWarning
+  , logCreate
   )
 import System.FilePath.Posix (takeExtension)
 import System.Console.ANSI.Types (Color (Green))
@@ -65,7 +66,9 @@ createMigration title = do
   let filepathUp = migrationUpDir ++ "/" ++ filename
   let filepathDown = migrationDownDir ++ "/" ++ filename
   writeFile filepathUp ""
+  logCreate filepathUp
   writeFile filepathDown ""
+  logCreate filepathDown
   where
     formatTime :: String -> String
     formatTime time = bool time ("0" ++ time) (length time == 1)

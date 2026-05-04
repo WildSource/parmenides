@@ -27,3 +27,8 @@ logError msg
   >> putStrLn ("    " ++ msg)
   >> setSGR [Reset]
 
+logCreate :: FilePath -> IO ()
+logCreate filepath
+  =  putStr "    "
+  >> applyColor Green "create"
+  >> putStrLn (" " ++ filepath)
