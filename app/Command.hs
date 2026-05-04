@@ -55,7 +55,10 @@ scanMigrations = do
   pure (upFiles, downFiles)
 
 createMigration :: String -> IO ()
-createMigration title = undefined
+createMigration title =
+  let
+    
 
 runMigrations :: Flavor -> [String] -> IO ()
 runMigrations = undefined
+

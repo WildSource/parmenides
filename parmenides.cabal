@@ -63,14 +63,16 @@ executable parmenides
 
     -- Modules included in this executable, other than Main.
     other-modules:    Log,
+                      Command,
                       Environment,
-                      Command
+                      Utility
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.18.3.0,
+                      time,
                       directory,
                       filepath,
                       transformers,
