@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 module Command where
 
 import Environment
@@ -19,6 +20,7 @@ import Log
 import System.FilePath.Posix (takeExtension)
 import System.Console.ANSI.Types (Color (Green))
 import Control.Monad (unless)
+import Utility hiding (headTail)
 
 help :: IO ()
 help = logInfo "This is supposed to be the help function"
@@ -55,9 +57,25 @@ scanMigrations = do
   pure (upFiles, downFiles)
 
 createMigration :: String -> IO ()
-createMigration title =
-  let
-    
+createMigration title = do
+  time <- getTimestamp
+  let timestamp = formatTimestamp time 
+  let filename = timestamp ++ "_" ++ title ++ ".sql"
+  let filepathUp = migrationUpDir ++ "/" ++ filename
+  let filepathDown = migrationDownDir ++ "/" ++ filename
+  writeFile filepathUp ""
+  writeFile filepathDown ""
+  where
+    formatTimestamp :: Timestamp -> String
+    formatTimestamp timestamp =
+      let timestamps =
+            [ show timestamp.year
+            , show timestamp.month
+            , show timestamp.day
+            , show timestamp.hour
+            , show timestamp.minute
+            ]
+      in concatMap (++ "_") timestamps
 
 runMigrations :: Flavor -> [String] -> IO ()
 runMigrations = undefined

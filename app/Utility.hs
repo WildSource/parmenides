@@ -1,7 +1,8 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module Utility where
 
 import Data.Time
-import Data.Time.Calendar.OrdinalDate (toOrdinalDate)
+import Data.Time.Calendar(toGregorian)
 import Data.List.NonEmpty (NonEmpty(..))
 
 headTail :: NonEmpty a -> (a, [a])
@@ -18,12 +19,11 @@ data Timestamp = Timestamp
 getTimestamp :: IO Timestamp
 getTimestamp = do
   time <- getCurrentTime
-  year <- getYear time
-  pure $ Timestamp year undefined undefined undefined undefined
-  where
-    getYear :: UTCTime -> IO Year
-    getYear utct = do
-        let day = utctDay utct
-        let (year, _) = toOrdinalDate day
-        pure year
+  timezone <- getCurrentTimeZone
+  let (year, month, day) = toGregorian $ utctDay time
+  let localTime = localTimeOfDay $ utcToLocalTime timezone time
+  let hour = todHour localTime
+  let minutes = todMin localTime
+  
+  pure $ Timestamp year month day hour minutes
 
