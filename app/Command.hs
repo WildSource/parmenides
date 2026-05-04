@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 module Command where
 
+import Data.Bool
 import Environment
   ( Flavor
   , migrationDir
@@ -66,16 +67,20 @@ createMigration title = do
   writeFile filepathUp ""
   writeFile filepathDown ""
   where
+    formatTime :: String -> String
+    formatTime time = bool time ("0" ++ time) (length time == 1)
+              
     formatTimestamp :: Timestamp -> String
     formatTimestamp timestamp =
       let timestamps =
             [ show timestamp.year
-            , show timestamp.month
-            , show timestamp.day
-            , show timestamp.hour
-            , show timestamp.minute
+            , formatTime $ show timestamp.month
+            , formatTime $ show timestamp.day
+            , formatTime $ show timestamp.hour
+            , formatTime $ show timestamp.minute
             ]
       in concatMap (++ "_") timestamps
+     
 
 runMigrations :: Flavor -> [String] -> IO ()
 runMigrations = undefined
