@@ -76,8 +76,10 @@ executable parmenides
                       directory,
                       filepath,
                       transformers,
+                      text,
                       ansi-terminal ^>=1.1.5,
-                      load-env ^>=0.2.1.0
+                      load-env ^>=0.2.1.0,
+                      sqlite-simple ^>=0.4.19.0
 
     -- Directories containing source files.
     hs-source-dirs:   app

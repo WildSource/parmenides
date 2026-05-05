@@ -4,6 +4,7 @@ module Utility where
 import Data.Time
 import Data.Time.Calendar(toGregorian)
 import Data.List.NonEmpty (NonEmpty(..))
+import Data.Text qualified as T
 
 headTail :: NonEmpty a -> (a, [a])
 headTail (x:|xs) = (x, xs)
@@ -26,4 +27,4 @@ getTimestamp = do
   let minutes = todMin localTime
   
   pure $ Timestamp year month day hour minutes
-
+  
