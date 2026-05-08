@@ -2,7 +2,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Command where
 
-import Database.SQLite.Simple (open, execute_, Query (..))
+import Database.SQLite.Simple
+  ( open
+  , close
+  , execute_
+  , Query (..)
+  )
 import System.Environment (getEnv)
 import Data.Bool (bool)
 import Environment
@@ -95,9 +100,11 @@ migrateSqlite = mapM_ migrateSqlite'
     migrateSqlite' :: FilePath -> IO ()
     migrateSqlite' filepath = do
       scriptContent <- TIO.readFile filepath
-      url <- getEnv "parmenides_url" 
+      url <- getEnv "PARMENIDES_URL" 
       conn <- open url
       execute_ conn (Query scriptContent)
+      putStrLn $ "migration " ++ filepath ++ " was ran"
+      close conn
 
 migrateMysql :: [FilePath] -> IO ()
 migrateMysql scripts = undefined
@@ -107,18 +114,18 @@ migratePostgresql scripts = undefined
      
 runMigrations :: Maybe Flavor -> IO ()
 runMigrations Nothing = logError "Database Flavor is missing"
-runMigrations (Just flavor) =
-  let migrations = getUpMigrations
-  in
-    case flavor of
-      SQLite     -> migrations >>= migrateSqlite  
-      MySQL      -> migrations >>= migrateMysql 
-      PostgreSQL -> migrations >>= migratePostgresql
+runMigrations (Just flavor) = do
+  migrations <- getUpMigrations
+  logInfo ("found up migrations " ++ show migrations)
+  case flavor of
+       SQLite     ->  migrateSqlite migrations
+       MySQL      ->  migrateMysql migrations
+       PostgreSQL ->  migratePostgresql migrations
   where
     getUpMigrations :: IO [FilePath]
     getUpMigrations = do
       let migrationUpDir' = migrationUpDir ++ "/"
       migrationFiles <- listDirectory migrationUpDir
-      let scripts = filter (\ file -> ".sql" /= takeExtension file) migrationFiles
+      let scripts = filter (\ file -> ".sql" == takeExtension file) migrationFiles
       pure $ fmap (migrationUpDir' ++) scripts
      

@@ -3,7 +3,7 @@ module Main (main) where
 import Log (logError)
 import Control.Monad (void)
 import Command
-import System.Environment (getArgs)
+import System.Environment (getArgs, getEnv)
 import LoadEnv (loadEnv)
 import Environment (getFlavor)
 import Data.List.NonEmpty qualified as NE
@@ -19,15 +19,15 @@ runCommands (name NE.:| parameters) =
     zeroArgCommand :: String -> IO ()
     zeroArgCommand name' = 
       case name' of
-        "scan"   -> scanMigrations >>= print
-        "dir"    -> migrationFolder
-        _        -> logError ("Stopped at 0 argument commands. \nDid you forget to add a parameter for " ++ name' ++ " ?")
+        "scan"    -> scanMigrations >>= print
+        "dir"     -> migrationFolder
+        "migrate" -> getEnv "PARMENIDES_FLAVOR" >>= (runMigrations . getFlavor)
+        _         -> logError ("Stopped at 0 argument commands. \nDid you forget to add a parameter for " ++ name' ++ " ?")
 
     oneArgCommand :: String -> String -> IO ()
     oneArgCommand name'' arg = 
       case name'' of
-        "create" -> createMigration arg
-        "run"    -> runMigrations $ getFlavor arg
+        "make" -> createMigration arg
         _        -> logError ("Stopped at 1 argument commands. \nTry adding the more parameters for " ++ name'' ++ " ?")
 
 main :: IO ()
