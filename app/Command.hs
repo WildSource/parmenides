@@ -67,7 +67,7 @@ scanMigrations = do
     $ logWarning $ "These files are not sql scripts " ++ show otherFiles
     
   pure (upFiles, downFiles)
-
+      
 createMigration :: String -> IO ()
 createMigration title = do
   time <- getTimestamp

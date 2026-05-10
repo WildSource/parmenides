@@ -1,11 +1,13 @@
 module Main (main) where
 
+import Data.Bool (bool)
+import System.Directory (doesDirectoryExist)
 import Log (logError)
 import Control.Monad (void)
 import Command
 import System.Environment (getArgs, getEnv)
 import LoadEnv (loadEnv)
-import Environment (getFlavor)
+import Environment (getFlavor, migrationDir)
 import Data.List.NonEmpty qualified as NE
   ( NonEmpty (..)
   , nonEmpty
@@ -19,7 +21,8 @@ runCommands (name NE.:| parameters) =
     zeroArgCommand :: String -> IO ()
     zeroArgCommand name' = 
       case name' of
-        "scan"    -> scanMigrations >>= print
+        "scan"    ->  doesDirectoryExist migrationDir
+                  >>= bool (logError "The migrations/ directory does not exist") (scanMigrations >>= print) 
         "dir"     -> migrationFolder
         "migrate" -> getEnv "PARMENIDES_FLAVOR" >>= (runMigrations . getFlavor)
         _         -> logError ("Stopped at 0 argument commands. \nDid you forget to add a parameter for " ++ name' ++ " ?")
