@@ -9,6 +9,7 @@ import Database.SQLite.Simple
   , Query (..)
   )
 import System.Environment (getEnv)
+import Dialect.Sqlite qualified as SqliteDialect
 import Data.Bool (bool)
 import Environment
   ( Flavor (..)
@@ -94,18 +95,6 @@ createMigration title = do
             ]
       in concatMap (++ "_") timestamps
 
-migrateSqlite :: [FilePath] -> IO ()
-migrateSqlite = mapM_ migrateSqlite' 
-  where
-    migrateSqlite' :: FilePath -> IO ()
-    migrateSqlite' filepath = do
-      scriptContent <- TIO.readFile filepath
-      url <- getEnv "PARMENIDES_URL" 
-      conn <- open url
-      execute_ conn (Query scriptContent)
-      putStrLn $ "migration " ++ filepath ++ " was ran"
-      close conn
-
 migrateMysql :: [FilePath] -> IO ()
 migrateMysql scripts = undefined
 
@@ -118,7 +107,7 @@ runMigrations (Just flavor) = do
   migrations <- getUpMigrations
   logInfo ("found up migrations " ++ show migrations)
   case flavor of
-       SQLite     ->  migrateSqlite migrations
+       SQLite     ->  SqliteDialect.migrate migrations
        MySQL      ->  migrateMysql migrations
        PostgreSQL ->  migratePostgresql migrations
   where

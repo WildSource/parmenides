@@ -65,7 +65,8 @@ executable parmenides
     other-modules:    Log,
                       Command,
                       Environment,
-                      Utility
+                      Utility,
+                      Dialect.Sqlite
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

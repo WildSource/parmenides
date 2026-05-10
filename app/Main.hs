@@ -5,6 +5,7 @@ import System.Directory (doesDirectoryExist)
 import Log (logError)
 import Control.Monad (void)
 import Command
+import Dialect.Sqlite qualified as SqliteDialect
 import System.Environment (getArgs, getEnv)
 import LoadEnv (loadEnv)
 import Environment (getFlavor, migrationDir)
@@ -21,6 +22,7 @@ runCommands (name NE.:| parameters) =
     zeroArgCommand :: String -> IO ()
     zeroArgCommand name' = 
       case name' of
+        "setup"   ->  SqliteDialect.createTrackingTable
         "scan"    ->  doesDirectoryExist migrationDir
                   >>= bool (logError "The migrations/ directory does not exist") (scanMigrations >>= print) 
         "dir"     -> migrationFolder
