@@ -32,3 +32,9 @@ logCreate filepath
   =  putStr "    "
   >> applyColor Green "create"
   >> putStrLn (" " ++ filepath)
+
+logRun :: FilePath -> IO ()
+logRun filepath
+  =  applyColor Green "    ran "
+  >> putStrLn ("migration " ++ filepath)
+
