@@ -44,7 +44,8 @@ createTrackingTable = do
                               \path TEXT UNIQUE,\
                               \applied INTEGER\
                               \)"
-                              
+
+{-                              
 migrate :: [FilePath] -> IO ()
 migrate migrations =
   let sortedMigrations = 
@@ -63,3 +64,4 @@ migrate migrations =
           execute_ conn (Query scriptContent)
           logRun filepath
           close conn
+-}
