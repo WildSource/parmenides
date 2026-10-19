@@ -15,7 +15,19 @@ data Timestamp = Timestamp
   , day :: Int
   , hour :: Int
   , minute :: Int
-  } deriving Show
+  }
+
+instance Show Timestamp where
+  show (Timestamp year month day hour minute) =
+    let fields =
+          [ fromIntegral year
+          , month
+          , day
+          , hour
+          , minute
+          ]
+    in  foldl (++) "" $ fmap show fields
+
 
 getTimestamp :: IO Timestamp
 getTimestamp = do
