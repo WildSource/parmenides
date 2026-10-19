@@ -1,48 +1,38 @@
 module Main (main) where
 
-import Data.Bool (bool)
-import System.Directory (doesDirectoryExist)
-import Log (logError)
-import Control.Monad (void)
+import Prelude hiding (error)
+import Data.List.NonEmpty as NE
+import Data.List.NonEmpty (nonEmpty)
+
 import Command
-import Dialect.Sqlite qualified as SqliteDialect
+  ( help
+  , setup
+  , mkMigration
+  , error
+  )
 import System.Environment (getArgs, getEnv)
 import LoadEnv (loadEnv)
-import Environment (getFlavor, migrationDir)
-import Data.List.NonEmpty qualified as NE
-  ( NonEmpty (..)
-  , nonEmpty
-  , head
-  )
-
-{-
-runCommands :: NE.NonEmpty String -> IO ()
-runCommands (name NE.:| parameters) =
-  void $ maybe (zeroArgCommand name) (oneArgCommand name . NE.head) (NE.nonEmpty parameters)
-  where
-    zeroArgCommand :: String -> IO ()
-    zeroArgCommand name' = 
-      case name' of
-        "setup"   ->  SqliteDialect.createTrackingTable
-        "scan"    ->  doesDirectoryExist migrationDir
-                  >>= bool (logError "The migrations/ directory does not exist") (scanMigrations >>= print) 
-        "dir"     -> migrationFolder
-        "migrate" -> getEnv "PARMENIDES_FLAVOR" >>= (runMigrations . getFlavor)
-        _         -> logError ("Stopped at 0 argument commands. \nDid you forget to add a parameter for " ++ name' ++ " ?")
-
-    oneArgCommand :: String -> String -> IO ()
-    oneArgCommand name'' arg = 
-      case name'' of
-        "make" -> createMigration arg
-        _        -> logError ("Stopped at 1 argument commands. \nTry adding the more parameters for " ++ name'' ++ " ?")
--}
 
 main :: IO ()
 main = do
   loadEnv
+  args <- getArgs
+  execute args
   
-  {-
-  let command = NE.nonEmpty args :: Maybe (NE.NonEmpty String)
-  maybe help runCommands command
-  -}
+execute :: [String] -> IO ()
+execute (x:xs) =
+  case x of
+    "help" -> help
+    
+    "setup" -> setup
+    
+    "mkMigration" ->
+      case nonEmpty xs of
+        Nothing ->
+          error "mkMigration command is missing an argument representing the migration's title"
+        Just nonEmptyArgs ->
+          mkMigration $ NE.head nonEmptyArgs
+          
+    _ -> error $ "no command named " <> x <> " seems to exist"
+execute _ = help
 

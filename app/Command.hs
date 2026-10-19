@@ -4,52 +4,41 @@ module Command where
 
 import Prelude hiding ((<>))
 import Control.Monad (when)
-
-import Text.PrettyPrint as PP
-
-import Database.SQLite.Simple
-  ( open
-  , close
-  , execute_
-  , Query (..)
-  )
-import System.Environment (getEnv)
-import Dialect.Sqlite qualified as SqliteDialect
-import Data.Bool (bool)
-import Environment
-  ( Flavor (..)
-  , migrationDir
-  , migrationUpDir
-  , migrationDownDir
-  )
 import System.Directory
   ( createDirectoryIfMissing
   , doesDirectoryExist
   , doesFileExist
-  , listDirectory
   )
-import Log
-  ( applyColor
-  , logInfo
-  , logWarning
-  , logCreate
-  , logError
+
+import System.Console.ANSI (Color(Red))
+import Text.PrettyPrint
+  (($$)
+  , (<>)
+  , nest
+  , render
+  , text
+  , Doc
   )
-import System.FilePath.Posix (takeExtension)
-import System.Console.ANSI.Types (Color (Green))
-import Control.Monad (unless)
-import Data.Text.IO qualified as TIO
-import Utility hiding (headTail)
+
+import Log (applyColor)
+import Utility (getTimestamp)
 
 help :: IO ()
 help =   
-  print $ render $ help'
+  putStrLn $ render $ help'
   where
     help' :: Doc
     help' =
-      text "Commands:" $$
-      nest 4 (text "help") <+> text "The current output is this command" $$
-      nest 4 (text "setup") <+> text "Creates a migrations/ directory and an environment file for pamenides"
+      let startingGap = 4      
+          characterLimit = 15
+          help = nest startingGap (text "help") <> (text ((dynamicGap characterLimit "help") ++ "The current output is this command"))
+          setup = nest startingGap (text "setup") <> (text ((dynamicGap characterLimit "setup") ++ "Creates a migrations/ directory and an environment file for pamenides"))
+          mkMigration = nest startingGap (text "mkMigration") <> (text ((dynamicGap characterLimit "mkMigration") ++ "Creates a migration file to migrations/ with a title and a timestamp seperated by \'_\'"))
+      in  text "Commands:" $$ help $$ setup $$ mkMigration
+
+    dynamicGap :: Int -> String -> String
+    dynamicGap characterLimit word =
+      replicate (characterLimit - (length word)) ' '
 
 setup :: IO ()
 setup = do
@@ -78,3 +67,14 @@ setup = do
       text "PARMENIDES_NAME=" $$
       text "PARMENIDES_PASSWORD="
 
+mkMigration :: String -> IO ()
+mkMigration title = do
+  timestamp <- getTimestamp
+  let filename = title ++ "_" ++ show timestamp ++ ".sql"
+  writeFile ("migrations/" ++ filename) ""
+  
+error :: String -> IO ()
+error message
+  = applyColor Red "Error: "
+  >> putStrLn (render (text message))
+  >> help
