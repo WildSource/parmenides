@@ -15,6 +15,7 @@ import Data.List.NonEmpty qualified as NE
   , head
   )
 
+{-
 runCommands :: NE.NonEmpty String -> IO ()
 runCommands (name NE.:| parameters) =
   void $ maybe (zeroArgCommand name) (oneArgCommand name . NE.head) (NE.nonEmpty parameters)
@@ -34,11 +35,14 @@ runCommands (name NE.:| parameters) =
       case name'' of
         "make" -> createMigration arg
         _        -> logError ("Stopped at 1 argument commands. \nTry adding the more parameters for " ++ name'' ++ " ?")
+-}
 
 main :: IO ()
 main = do
   loadEnv
-  args <- getArgs
+  
+  {-
   let command = NE.nonEmpty args :: Maybe (NE.NonEmpty String)
   maybe help runCommands command
+  -}
 

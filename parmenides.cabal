@@ -73,6 +73,7 @@ executable parmenides
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.20.1.0,
+                      pretty,
                       time,
                       directory,
                       filepath,

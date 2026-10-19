@@ -2,6 +2,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Command where
 
+import Prelude hiding ((<>))
+import Control.Monad (when)
+
+import Text.PrettyPrint as PP
+
 import Database.SQLite.Simple
   ( open
   , close
@@ -18,8 +23,9 @@ import Environment
   , migrationDownDir
   )
 import System.Directory
-  ( createDirectory
+  ( createDirectoryIfMissing
   , doesDirectoryExist
+  , doesFileExist
   , listDirectory
   )
 import Log
@@ -36,85 +42,39 @@ import Data.Text.IO qualified as TIO
 import Utility hiding (headTail)
 
 help :: IO ()
-help = logInfo "This is supposed to be the help function"
-
-migrationFolder :: IO ()
-migrationFolder = do
-  doesExist <- doesDirectoryExist migrationDir
-  if doesExist
-    then logInfo "Migration directory exists"
-    else logWarning "Migration directory missing"
-      >> createMigrationDirectories [migrationDir, migrationUpDir, migrationDownDir]
+help =   
+  print $ render $ help'
   where
-    createAndLogDirectory :: String -> IO ()
-    createAndLogDirectory directoryPath
-      = createDirectory directoryPath
-      >> putStr "    "
-      >> applyColor Green "create"
-      >> putStrLn (" " ++ directoryPath)
+    help' :: Doc
+    help' =
+      text "Commands:" $$
+      nest 4 (text "help") <+> text "The current output is this command" $$
+      nest 4 (text "setup") <+> text "Creates a migrations/ directory and an environment file for pamenides"
+
+setup :: IO ()
+setup = do
+  dirExist <- doesDirectoryExist "migrations"
+  when (not dirExist) createMigrationDirectory
+
+  fileExist <- doesFileExist "parmenides.env"
+  when (not fileExist) createParmenidesEnvironmentFile
+  where
+    createMigrationDirectory :: IO ()
+    createMigrationDirectory
+      =  createDirectoryIfMissing True "migrations"
+      >>  putStrLn "migrations/ directory created"
+
+    createParmenidesEnvironmentFile :: IO ()
+    createParmenidesEnvironmentFile
+      =  writeFile "parmenides.env" (render envFile)  
+      >> putStrLn "parmenides.env environment file created"
       
-    createMigrationDirectories :: [String] -> IO ()
-    createMigrationDirectories = mapM_ createAndLogDirectory
+    -- might need to handle other database other than Postgresql in the future
+    envFile :: Doc
+    envFile =
+      text "PARMENIDES_HOST=" $$
+      text "PARMENIDES_PORT=" $$
+      text "PARMENIDES_USER=" $$
+      text "PARMENIDES_NAME=" $$
+      text "PARMENIDES_PASSWORD="
 
-scanMigrations :: IO ([String], [String])
-scanMigrations = do
-  upFiles <- listDirectory migrationUpDir
-  downFiles <- listDirectory migrationDownDir
-  let files = upFiles ++ downFiles
-
-  let otherFiles = filter (\ file -> ".sql" /= takeExtension file) files
-  
-  unless (null otherFiles)
-    $ logWarning $ "These files are not sql scripts " ++ show otherFiles
-    
-  pure (upFiles, downFiles)
-      
-createMigration :: String -> IO ()
-createMigration title = do
-  time <- getTimestamp
-  let timestamp = formatTimestamp time 
-  let filename = timestamp ++ "_" ++ title ++ ".sql"
-  let filepathUp = migrationUpDir ++ "/" ++ filename
-  let filepathDown = migrationDownDir ++ "/" ++ filename
-  writeFile filepathUp ""
-  logCreate filepathUp
-  writeFile filepathDown ""
-  logCreate filepathDown
-  where
-    formatTime :: String -> String
-    formatTime time = bool time ("0" ++ time) (length time == 1)
-              
-    formatTimestamp :: Timestamp -> String
-    formatTimestamp timestamp =
-      let timestamps =
-            [ show timestamp.year
-            , formatTime $ show timestamp.month
-            , formatTime $ show timestamp.day
-            , formatTime $ show timestamp.hour
-            , formatTime $ show timestamp.minute
-            ]
-      in concatMap (++ "_") timestamps
-
-migrateMysql :: [FilePath] -> IO ()
-migrateMysql scripts = undefined
-
-migratePostgresql :: [FilePath] -> IO ()
-migratePostgresql scripts = undefined
-     
-runMigrations :: Maybe Flavor -> IO ()
-runMigrations Nothing = logError "Database Flavor is missing"
-runMigrations (Just flavor) = do
-  migrations <- getUpMigrations
-  logInfo ("found up migrations " ++ show migrations)
-  case flavor of
-       SQLite     ->  SqliteDialect.migrate migrations
-       MySQL      ->  migrateMysql migrations
-       PostgreSQL ->  migratePostgresql migrations
-  where
-    getUpMigrations :: IO [FilePath]
-    getUpMigrations = do
-      let migrationUpDir' = migrationUpDir ++ "/"
-      migrationFiles <- listDirectory migrationUpDir
-      let scripts = filter (\ file -> ".sql" == takeExtension file) migrationFiles
-      pure $ fmap (migrationUpDir' ++) scripts
-     
