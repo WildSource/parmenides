@@ -4,18 +4,20 @@ import Prelude hiding (error)
 import Data.List.NonEmpty as NE
 import Data.List.NonEmpty (nonEmpty)
 
+import System.Environment (getArgs, getEnv)
+import LoadEnv (loadEnvFrom)
+
 import Command
   ( help
   , setup
+  , setupTracking
   , mkMigration
   , error
   )
-import System.Environment (getArgs, getEnv)
-import LoadEnv (loadEnv)
 
 main :: IO ()
 main = do
-  loadEnv
+  loadEnvFrom "parmenides.env"
   args <- getArgs
   execute args
   
@@ -25,6 +27,8 @@ execute (x:xs) =
     "help" -> help
     
     "setup" -> setup
+
+    "setupTracking" -> setupTracking
     
     "mkMigration" ->
       case nonEmpty xs of
