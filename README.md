@@ -25,7 +25,7 @@ The variables will already be defined, so all is left to do is to give them valu
 
 # TODO
 
-- [ ] Ordered list of migrations
+- [x] Ordered list of migrations
 - [ ] A tracking table that records which migration ran and those who did no run yet
 - [ ] A runner that finds unapplied migration and runs them in order
 - [ ] A way to invoke it (cli binary executable)
