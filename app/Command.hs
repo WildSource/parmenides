@@ -2,6 +2,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Command where
 
+import Data.Int (Int64 (..))
+import System.Directory (removeFile)
+import Control.Exception (catch)
 import Data.List.NonEmpty as NE
 import Prelude hiding ((<>))
 import Control.Monad
@@ -14,6 +17,7 @@ import System.Directory
   , doesFileExist
   )
 
+import Database.PostgreSQL.Simple (SqlError (..))
 import System.Console.ANSI (Color(Red))
 import Text.PrettyPrint
   (($$)
@@ -27,7 +31,10 @@ import Text.PrettyPrint
 
 import Log (applyColor)
 import Utility (getTimestamp)
-import Dialect.Postgresql (createMigrationTrackingTable)
+import Dialect.Postgresql
+  ( createMigrationTrackingTable
+  , createTrackedMigration
+  )
 
 startingGap :: Int
 startingGap = 4
@@ -147,7 +154,8 @@ setupTrackingInternal =
   let eventLog = "Migration tracking table has been created and committed to the database"
   in  createMigrationTrackingTable
       >> putStrLn eventLog      
-  
+
+-- TODO create db entry in migration tracking table
 mkMigrationCommand :: Command
 mkMigrationCommand =
   let helpDoc =
@@ -168,11 +176,21 @@ mkMigrationCommand =
 mkMigrationInternal :: String -> IO ()
 mkMigrationInternal title = do
   timestamp <- getTimestamp
-  let filename = title ++ "_" ++ show timestamp ++ ".sql"
-  writeFile ("migrations/" ++ filename) ""
+  let filepath = "migrations/" ++ title ++ "_" ++ show timestamp ++ ".sql"
+  writeFile filepath ""
+  result <- createTrackedMigration filepath
+  case result of
+    Left (err :: SqlError) ->
+      removeFile filepath
+      >> print err
+      >> errorCommand "Failed insertion of tracked migration in database"
+      >> pure ()
+    Right _ -> 
+      pure ()
   
 errorCommand :: String -> IO ()
 errorCommand message
   = applyColor Red "Error: "
   >> putStrLn (render (text message))
   >> run helpCommand []
+  
