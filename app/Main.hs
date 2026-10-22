@@ -1,42 +1,31 @@
 module Main (main) where
 
-import Prelude hiding (error)
-import Data.List.NonEmpty as NE
-import Data.List.NonEmpty (nonEmpty)
-
-import System.Environment (getArgs, getEnv)
+import Data.List (find)
+import System.Environment (getArgs)
 import LoadEnv (loadEnvFrom)
 
 import Command
-  ( help
-  , setup
-  , setupTracking
-  , mkMigration
-  , error
+  ( Command (..)
+  , commands
+  , errorCommand
   )
 
 main :: IO ()
 main = do
   loadEnvFrom "parmenides.env"
   args <- getArgs
-  execute args
-  
-execute :: [String] -> IO ()
-execute (x:xs) =
-  case x of
-    "help" -> help
-    
-    "setup" -> setup
-
-    "setupTracking" -> setupTracking
-    
-    "mkMigration" ->
-      case nonEmpty xs of
-        Nothing ->
-          error "mkMigration command is missing an argument representing the migration's title"
-        Just nonEmptyArgs ->
-          mkMigration $ NE.head nonEmptyArgs
-          
-    _ -> error $ "no command named " <> x <> " seems to exist"
-execute _ = help
-
+  either
+    id
+    (\ (cmd, arguments) -> run cmd arguments)
+    (parse args)
+                
+parse :: [String] -> Either (IO ()) (Command, [String])
+parse [] = Left $ errorCommand "No command has been provided to parmenides"
+parse (x : xs) =
+  let maybeCommand = find (\ cmd -> name cmd == x) commands
+  in
+    case maybeCommand of
+      Nothing ->
+        Left $ errorCommand $ "No command named " ++ x ++ " was found"
+      Just matchedCmd ->
+        Right (matchedCmd, xs)
