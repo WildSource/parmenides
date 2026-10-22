@@ -27,6 +27,6 @@ The variables will already be defined, so all is left to do is to give them valu
 
 - [x] Ordered list of migrations
 - [x] A tracking table that records which migration ran and those who did no run yet
+- [x] A way to invoke it (cli binary executable)
 - [ ] A runner that finds unapplied migration and runs them in order
-- [ ] A way to invoke it (cli binary executable)
 
