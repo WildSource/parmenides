@@ -4,9 +4,9 @@ import Data.List (find)
 import System.Environment (getArgs)
 import LoadEnv (loadEnvFrom)
 
-import Command
-  ( Command (..)
-  , commands
+import Command (Command (..))
+import Commands
+  ( commands
   , errorCommand
   )
 
