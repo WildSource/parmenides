@@ -64,7 +64,6 @@ executable parmenides
     -- Modules included in this executable, other than Main.
     other-modules:    Log,
                       Command,
-                      Environment,
                       Utility,
                       Dialect.Internal,
                       Dialect.Sqlite,
