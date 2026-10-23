@@ -111,7 +111,8 @@ setupInternal = do
       text "PARMENIDES_PORT=" $$
       text "PARMENIDES_USER=" $$
       text "PARMENIDES_NAME=" $$
-      text "PARMENIDES_PASSWORD=\n"
+      text "PARMENIDES_PASSWORD=" $$
+      text " "
 
 setupTrackingCommand :: Command
 setupTrackingCommand =
