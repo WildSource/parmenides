@@ -1,5 +1,6 @@
 module Commands where
 
+import Data.List ((\\))
 import System.Directory
   ( removeFile
   , getDirectoryContents
@@ -32,6 +33,7 @@ import Utility (getTimestamp)
 import Dialect.Postgresql
   ( createMigrationTrackingTable
   , createTrackedMigration
+  , getTrackedMigrationNames
   )
 import Command
   ( Command (..)
@@ -176,9 +178,20 @@ migrate = undefined
 -- Checks for new migrations that are not tracked and add entries for them
 scanMigrations :: IO ()
 scanMigrations = do
+  untrackedMigrations <- getUntrackedMigrationInDirectory
+  print $ untrackedMigrations
+  -- TODO if [] do nothing else add migration entries to database
+
+getUntrackedMigrationInDirectory :: IO [String]
+getUntrackedMigrationInDirectory = do
+  migrationsInDir <- getMigrationNames
+  migrationsInDb <- getTrackedMigrationNames
+  pure $ migrationsInDir \\ migrationsInDb
+
+getMigrationNames :: IO [String]
+getMigrationNames = do
   dirContent <- getDirectoryContents "migrations"
-  let migrations = filter (\ migration -> migration /= "." && migration /= "..") dirContent
-  print migrations
+  pure $ filter (\ migration -> migration /= "." && migration /= "..") dirContent  
   
 errorCommand :: String -> IO ()
 errorCommand message

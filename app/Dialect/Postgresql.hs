@@ -72,8 +72,8 @@ createTrackedMigration filename filepath =
       
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement' conn)
 
-getMigrationNames :: IO [String]
-getMigrationNames = do
+getTrackedMigrationNames :: IO [String]
+getTrackedMigrationNames = do
   let statement =
         "SELECT filename FROM parmenides_migration;"
 
