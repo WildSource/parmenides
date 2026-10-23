@@ -7,6 +7,19 @@ import System.Environment (getEnv)
 import Control.Exception (try)
 
 import Database.PostgreSQL.Simple
+  ( ConnectInfo (..)
+  , Connection
+  , Query
+  , SqlError
+  , Only (..)
+  , execute
+  , execute_
+  , query_
+  , withConnect
+  , withTransaction
+  )
+
+-- TODO Apply Reader Monad to these implementation to reduce boilerplate on Connection handling
 
 getConnectInfo :: IO ConnectInfo
 getConnectInfo = do
@@ -36,6 +49,7 @@ createMigrationTrackingTable =
       createMigrationTrackingTable'
         =  "CREATE TABLE IF NOT EXISTS parmenides_migration (\n\
            \  id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n\
+           \  filename VARCHAR(50) NOT NULL,\n\
            \  filepath VARCHAR(50) NOT NULL,\n\
            \  applied BOOLEAN NOT NULL\n\
            \);"
@@ -45,18 +59,30 @@ createMigrationTrackingTable =
       
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement conn)
 
-createTrackedMigration :: String -> IO (Either SqlError Int64)
-createTrackedMigration filepath =
+createTrackedMigration :: String -> String -> IO (Either SqlError Int64)
+createTrackedMigration filename filepath =
   let statement
-        = "INSERT INTO parmenides_migration (filepath, applied)\
-          \VALUES (?, ?);"
+        = "INSERT INTO parmenides_migration (filename, filepath, applied)\
+          \VALUES (?, ?, ?);"
           
       statement' :: Connection -> IO (Either SqlError Int64)
       statement' conn =
-        let dbAction = execute conn statement (filepath, False)
+        let dbAction = execute conn statement (filename, filepath, False)
         in  try dbAction
       
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement' conn)
 
+getMigrationNames :: IO [String]
+getMigrationNames = do
+  let statement =
+        "SELECT filename FROM parmenides_migration;"
 
-
+      statement' :: Connection -> IO [String]
+      statement' =
+        (\ conn' -> do
+            values <- query_ conn' statement
+            pure $ fmap (\ (Only filename) -> filename) values
+        )
+  connInfo <- getConnectInfo
+  withConnect connInfo (\ conn -> withTransaction conn (statement' conn))
+  

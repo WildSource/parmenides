@@ -1,6 +1,9 @@
 module Commands where
 
-import System.Directory (removeFile)
+import System.Directory
+  ( removeFile
+  , getDirectoryContents
+  )
 import qualified Data.List.NonEmpty as NE
 import Control.Monad
   ( when
@@ -149,20 +152,33 @@ mkMigrationCommand =
 mkMigrationInternal :: String -> IO ()
 mkMigrationInternal title = do
   timestamp <- getTimestamp
-  let filepath = "migrations/" ++ title ++ "_" ++ show timestamp ++ ".sql"
+  
+  let filename = title ++ "_" ++ show timestamp ++ ".sql"
+  let filepath = "migrations/" ++ filename
+  
   writeFile filepath ""
-  result <- createTrackedMigration filepath
+  
+  result <- createTrackedMigration filename filepath 
+  
   case result of
     Left (err :: SqlError) ->
       removeFile filepath
       >> print err
       >> errorCommand "Failed insertion of tracked migration in database"
       >> pure ()
+      
     Right _ -> 
       pure ()
 
 migrate :: Command
 migrate = undefined
+
+-- Checks for new migrations that are not tracked and add entries for them
+scanMigrations :: IO ()
+scanMigrations = do
+  dirContent <- getDirectoryContents "migrations"
+  let migrations = filter (\ migration -> migration /= "." && migration /= "..") dirContent
+  print migrations
   
 errorCommand :: String -> IO ()
 errorCommand message
