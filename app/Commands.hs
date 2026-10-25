@@ -33,6 +33,7 @@ import Utility (getTimestamp)
 import Dialect.Postgresql
   ( createMigrationTrackingTable
   , createTrackedMigration
+  , createTrackedMigrations  
   , getTrackedMigrationNames
   )
 import Command
@@ -180,6 +181,18 @@ migrate = undefined
 scanMigrations :: IO ()
 scanMigrations = do
   untrackedMigrations <- getUntrackedMigrationInDirectory
+  eitherResult <- createTrackedMigrations untrackedMigrations
+  
+  when
+    (not (null untrackedMigrations))
+    (either
+      (\ (e :: SqlError) -> do
+          print $ show e
+          errorCommand "New insertions of migration entries failed"
+      )
+      (\ _ -> putStrLn "Adding new migrations to the tracking table")
+      eitherResult
+    )
   print $ untrackedMigrations
   -- TODO if [] do nothing else add migration entries to database
 

@@ -72,6 +72,9 @@ createTrackedMigration filename filepath =
       
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement' conn)
 
+createTrackedMigrations :: [String] -> IO (Either SqlError Int64)  
+createTrackedMigrations filenames = undefined
+
 getTrackedMigrationNames :: IO [String]
 getTrackedMigrationNames = do
   let statement =
