@@ -16,10 +16,8 @@ import System.Directory
   , doesFileExist
   )
 
-import qualified Text.PrettyPrint as PP
 import Text.PrettyPrint
   (($$)
-  , nest
   , render
   , text
   , vcat
@@ -38,9 +36,7 @@ import Dialect.Postgresql
   )
 import Command
   ( Command (..)
-  , startingGap
-  , characterLimit
-  , dynamicGap
+  , mkHelpDoc
   )
 
 commands :: [Command]
@@ -49,43 +45,42 @@ commands =
   , setupCommand
   , setupTrackingCommand
   , mkMigrationCommand
+  , migrateCommand
   ]
 
 helpCommand :: Command
 helpCommand = 
-  let gap = (dynamicGap characterLimit "help")
-  in
-    Command
-    { name = "help"
-    , run = (\ args -> do
-               verifyArguments args
-               unless (not (null args)) helpInternal
-            )
-    , helpDoc = nest startingGap (text "help") PP.<> (text (gap ++ "This is the help command"))
-    }
+  Command
+  { name = "help"
+  , run = (\ args -> do
+              verifyArguments args
+              unless (not (null args)) helpInternal
+          )
+  , helpDoc = mkHelpDoc "help" [] "This is the help command" 
+  }
 
 helpInternal :: IO ()
 helpInternal =
   let helpDocs = fmap (helpDoc) commands
+      usage = text "Usage: parmenides CMD [ARG ...]"
       help' = text "Commands:" $$ vcat helpDocs
   in 
-    putStrLn $ render $ help'  
+    putStrLn $ render $ usage $$ help'  
 
 setupCommand :: Command
 setupCommand = 
-  let helpDoc =
-        let gap = (dynamicGap characterLimit "setup")
-        in  nest startingGap (text "setup") PP.<>
-            (text (gap ++ "Creates a migrations/ directory and an environment file for parmenides"))
-  in
-    Command
-    { name = "setup"
-    , run = (\ args -> do
-                verifyArguments args
-                unless (not (null args)) setupInternal
-            )
-    , helpDoc = helpDoc
-    }
+  Command
+  { name = "setup"
+  , run = (\ args -> do
+              verifyArguments args
+              unless (not (null args)) setupInternal
+          )
+  , helpDoc =
+      mkHelpDoc
+      "setup"
+      []
+      "Creates a migrations/ directory and an environment file for parmenides"
+  }
 
 setupInternal :: IO ()
 setupInternal = do
@@ -117,18 +112,18 @@ setupInternal = do
 
 setupTrackingCommand :: Command
 setupTrackingCommand =
-  let helpDoc =
-        let gap = dynamicGap characterLimit "setupTracking"
-        in  nest startingGap (text "setupTracking") PP.<>
-            (text (gap ++ "Create a table in the database to track migrations"))
-  in Command
-     { name = "setupTracking"
-     , run = (\ args -> do
-                 verifyArguments args
-                 unless (not (null args)) setupTrackingInternal
-             )
-     , helpDoc = helpDoc
-     }
+  Command
+  { name = "setupTracking"
+  , run = (\ args -> do
+              verifyArguments args
+              unless (not (null args)) setupTrackingInternal
+          )
+  , helpDoc =
+      mkHelpDoc
+      "setupTracking"
+      []
+      "Create a table in the database to track migrations"
+  }
 
 setupTrackingInternal :: IO ()
 setupTrackingInternal =
@@ -138,20 +133,20 @@ setupTrackingInternal =
 
 mkMigrationCommand :: Command
 mkMigrationCommand =
-  let helpDoc =
-        let gap = (dynamicGap characterLimit "mkMigration")
-        in  nest startingGap (text "mkMigration")
-            PP.<> (text (gap ++ "Creates a migration file to migrations/ with a title and a timestamp seperated by \'_\'"))
-    in Command
-       { name = "mkMigration"
-       , run =
-           (\ args ->
-              maybe
-              (errorCommand "Command \"mkMigration\" was given insufficient arguments for execution")
-              (mkMigrationInternal . NE.head)
-              (NE.nonEmpty args))
-       , helpDoc = helpDoc
-       }
+  Command
+  { name = "mkMigration"
+  , run =
+      (\ args ->
+          maybe
+          (errorCommand "Command \"mkMigration\" was given insufficient arguments for execution")
+          (mkMigrationInternal . NE.head)
+          (NE.nonEmpty args))
+  , helpDoc =
+      mkHelpDoc
+      "mkMigration"
+      ["title"]
+      "Takes a title as arg, creates a timestamped migration to migrations/ and tracks it"
+  }
 
 mkMigrationInternal :: String -> IO ()
 mkMigrationInternal title = do
@@ -174,27 +169,37 @@ mkMigrationInternal title = do
     Right _ -> 
       pure ()
 
-migrate :: Command
-migrate = undefined
+-- TODO test scanMigrations
+migrateCommand :: Command
+migrateCommand = Command
+  { name = "migrate"
+  , run = (\ _ -> scanMigrations)
+  , helpDoc =
+      mkHelpDoc
+      "migrate"
+      []
+      "Looks for untracked migrations, tracks them and run unapplied migrations"
+  }
 
 -- Checks for new migrations that are not tracked and add entries for them
 scanMigrations :: IO ()
 scanMigrations = do
   untrackedMigrations <- getUntrackedMigrationInDirectory
-  eitherResult <- createTrackedMigrations untrackedMigrations
-  
   when
-    (not (null untrackedMigrations))
-    (either
-      (\ (e :: SqlError) -> do
-          print $ show e
-          errorCommand "New insertions of migration entries failed"
-      )
-      (\ _ -> putStrLn "Adding new migrations to the tracking table")
-      eitherResult
-    )
-  print $ untrackedMigrations
-  -- TODO if [] do nothing else add migration entries to database
+    (not $ null untrackedMigrations)
+    $ scanMigrations' untrackedMigrations
+  where
+    scanMigrations' :: [String] -> IO ()
+    scanMigrations' untrackedMigrations = do
+      let filedataTuple = fmap (\ filename -> (filename, "migrations/" ++ filename)) untrackedMigrations
+      eitherResult <- createTrackedMigrations filedataTuple
+      either
+        (\ (e :: SqlError) -> do
+            print $ show e
+            errorCommand "New insertions of migration entries failed"
+        )
+        (\ _ -> putStrLn "Adding new migrations to the tracking table")
+        eitherResult
 
 getUntrackedMigrationInDirectory :: IO [String]
 getUntrackedMigrationInDirectory = do
@@ -218,4 +223,5 @@ verifyArguments :: [String] -> IO ()
 verifyArguments args =
   when
   (not (null args))
-  (errorCommand "Arguments were provided to a command that doesn't need them")  
+  (errorCommand "Arguments were provided to a command that doesn't need them")
+  
