@@ -1,6 +1,9 @@
 module Commands where
 
-import Data.List ((\\))
+import Data.List
+  ( (\\)
+  , sort
+  )
 import System.Directory
   ( removeFile
   , getDirectoryContents
@@ -45,6 +48,7 @@ commands =
   , setupCommand
   , setupTrackingCommand
   , mkMigrationCommand
+  , findMigrations
   , migrateCommand
   ]
 
@@ -145,19 +149,20 @@ mkMigrationCommand =
       mkHelpDoc
       "mkMigration"
       ["title"]
-      "Takes a title as arg, creates a timestamped migration to migrations/ and tracks it"
+      "Creates a migration file to migrations/ and tracks it"
   }
 
 mkMigrationInternal :: String -> IO ()
 mkMigrationInternal title = do
   timestamp <- getTimestamp
-  
-  let filename = title ++ "_" ++ show timestamp ++ ".sql"
+
+  let timestampStr = show timestamp
+  let filename = title ++ "_" ++ timestampStr ++ ".sql"
   let filepath = "migrations/" ++ filename
   
   writeFile filepath ""
   
-  result <- createTrackedMigration filename filepath 
+  result <- createTrackedMigration filename filepath timestampStr
   
   case result of
     Left (err :: SqlError) ->
@@ -169,32 +174,35 @@ mkMigrationInternal title = do
     Right _ -> 
       pure ()
 
--- TODO test scanMigrations
-migrateCommand :: Command
-migrateCommand = Command
-  { name = "migrate"
-  , run = (\ _ -> scanMigrations)
+findMigrations :: Command
+findMigrations = Command
+  { name = "findMigrations"
+  , run = (\ args -> do
+              verifyArguments args
+              unless (not (null args)) findMigrationsInternal
+          )
   , helpDoc =
       mkHelpDoc
-      "migrate"
+      "findMigrations"
       []
-      "Looks for untracked migrations, tracks them and run unapplied migrations"
+      "Checks for new migrations that are not tracked and add entries for them"
   }
 
--- Checks for new migrations that are not tracked and add entries for them
-scanMigrations :: IO ()
-scanMigrations = do
+findMigrationsInternal :: IO ()
+findMigrationsInternal = do
   untrackedMigrations <- getUntrackedMigrationInDirectory
   when
     (not $ null untrackedMigrations)
-    $ scanMigrations' untrackedMigrations
+    $ scanMigrations untrackedMigrations
   where
-    scanMigrations' :: [String] -> IO ()
-    scanMigrations' untrackedMigrations = do
+    scanMigrations :: [String] -> IO ()
+    scanMigrations untrackedMigrations = do
       let filedataTuple =
             fmap
-            (\ filename -> (filename, "migrations/" ++ filename, False))
-            untrackedMigrations
+            (\ filename ->
+               let timestampStr = reverse $ take 14 $ drop 4 $ reverse filename 
+               in (filename, "migrations/" ++ filename, timestampStr, False))
+            $ sort untrackedMigrations
       eitherResult <- createTrackedMigrations filedataTuple
       either
         (\ (e :: SqlError) -> do
@@ -203,7 +211,24 @@ scanMigrations = do
         )
         (\ _ -> putStrLn "Adding new migrations to the tracking table")
         eitherResult
+        
+migrateCommand :: Command
+migrateCommand = Command
+  { name = "migrate"
+  , run = (\ _ -> do
+              run findMigrations []
+          )
+  , helpDoc =
+      mkHelpDoc
+      "migrate"
+      []
+      "Runs findMigrations first cmd and then runs unapplied migrations"
+  }
 
+-- TODO Change Table schema to include timestamp (from filename) in database as field named "version" 
+migrateCommandInternal :: IO ()
+migrateCommandInternal = undefined
+ 
 getUntrackedMigrationInDirectory :: IO [String]
 getUntrackedMigrationInDirectory = do
   migrationsInDir <- getMigrationNames

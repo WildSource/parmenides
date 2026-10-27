@@ -34,10 +34,18 @@ instance Show Timestamp where
           , day
           , hour
           , minute
-          , second
           ]
-    in  foldl (++) "" $ fmap show fields
+    in  (foldl (++) "" $ fmap show fields) ++ pad second
+    where
+      pad :: Int -> String
+      pad num
+        | isDigit' num == True = "0" ++ show num
+        | otherwise = show num
 
+      isDigit' :: Int -> Bool
+      isDigit' numericValue
+        =  numericValue >= 0
+        && numericValue <= 9
 
 getTimestamp :: IO Timestamp
 getTimestamp = do

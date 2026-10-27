@@ -51,25 +51,33 @@ createMigrationTrackingTable =
                                          id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                                          filename VARCHAR(50) NOT NULL,
                                          filepath VARCHAR(50) NOT NULL,
+                                         version BIGINT NOT NULL,
                                          applied BOOLEAN NOT NULL
                                          ) |]
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement conn)
 
-createTrackedMigration :: String -> String -> IO (Either SqlError Int64)
-createTrackedMigration filename filepath =
+createTrackedMigration
+  :: String
+  -> String
+  -> String
+  -> IO (Either SqlError Int64)
+createTrackedMigration filename filepath version =
   let statement :: Connection -> IO (Either SqlError Int64)
       statement conn =
         try $
         execute
         conn
-        [sql| INSERT INTO parmenides_migration (filename, filepath, applied)
-            VALUES (?, ?, ?)|]
-          (filename, filepath, False)
+        [sql| INSERT INTO parmenides_migration (filename, filepath, version, applied)
+            VALUES (?, ?, ?, ?)|]
+          (filename, filepath, version, False)
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement conn)
 
 type Filename = String
 type Filepath = String
-createTrackedMigrations :: [(Filename, Filepath, Bool)] -> IO (Either SqlError Int64)
+type Version = String
+createTrackedMigrations
+  :: [(Filename, Filepath, Version, Bool)]
+  -> IO (Either SqlError Int64)
 createTrackedMigrations filedata = do
   connInfo <- getConnectInfo
   withConnect
@@ -78,8 +86,8 @@ createTrackedMigrations filedata = do
        withTransaction conn $ try $ 
        executeMany
        conn
-       [sql| INSERT INTO parmenides_migration (filename, filepath, applied)
-            VALUES (?, ?, ?) |]
+       [sql| INSERT INTO parmenides_migration (filename, filepath, version, applied)
+            VALUES (?, ?, ?, ?) |]
          filedata
     )
 
