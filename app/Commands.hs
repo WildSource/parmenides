@@ -191,7 +191,10 @@ scanMigrations = do
   where
     scanMigrations' :: [String] -> IO ()
     scanMigrations' untrackedMigrations = do
-      let filedataTuple = fmap (\ filename -> (filename, "migrations/" ++ filename)) untrackedMigrations
+      let filedataTuple =
+            fmap
+            (\ filename -> (filename, "migrations/" ++ filename, False))
+            untrackedMigrations
       eitherResult <- createTrackedMigrations filedataTuple
       either
         (\ (e :: SqlError) -> do
