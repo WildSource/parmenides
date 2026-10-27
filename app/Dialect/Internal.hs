@@ -14,9 +14,9 @@ getFlavor str =
     "postgresql" -> Just PostgreSQL
     _ -> Nothing
 
-data ParmenidesMigration = ParmMigration
-  { id :: Int
-  , filepath :: String
+data Migration = Migration
+  { filename :: String
+  , version :: Int
   , applied :: Bool
   } deriving Show
 

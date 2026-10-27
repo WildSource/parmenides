@@ -22,6 +22,8 @@ import Database.PostgreSQL.Simple
   , withTransaction
   )
 
+import Dialect.Internal (Migration (..))  
+
 -- TODO Apply Reader Monad to these implementation to reduce boilerplate on Connection handling
 getConnectInfo :: IO ConnectInfo
 getConnectInfo = do
@@ -47,15 +49,24 @@ executeStatement statement =
 createMigrationTrackingTable :: IO Int64
 createMigrationTrackingTable =
   let statement :: Connection -> IO Int64
-      statement conn = execute_ conn [sql| CREATE TABLE IF NOT EXISTS parmenides_migration (
+      statement conn = execute_ conn [sql|
+                                         CREATE TABLE IF NOT EXISTS parmenides_migration (
                                          id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                                          filename VARCHAR(50) NOT NULL,
                                          filepath VARCHAR(50) NOT NULL,
                                          version BIGINT NOT NULL,
                                          applied BOOLEAN NOT NULL
-                                         ) |]
+                                         )
+                                         |]
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement conn)
 
+insertMigrationQuery :: Query
+insertMigrationQuery =
+  [sql|
+      INSERT INTO parmenides_migration (filename, filepath, version, applied)
+      VALUES (?, ?, ?, ?)
+      |]
+    
 createTrackedMigration
   :: String
   -> String
@@ -67,9 +78,8 @@ createTrackedMigration filename filepath version =
         try $
         execute
         conn
-        [sql| INSERT INTO parmenides_migration (filename, filepath, version, applied)
-            VALUES (?, ?, ?, ?)|]
-          (filename, filepath, version, False)
+        insertMigrationQuery
+        (filename, filepath, version, False)
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement conn)
 
 type Filename = String
@@ -86,9 +96,8 @@ createTrackedMigrations filedata = do
        withTransaction conn $ try $ 
        executeMany
        conn
-       [sql| INSERT INTO parmenides_migration (filename, filepath, version, applied)
-            VALUES (?, ?, ?, ?) |]
-         filedata
+       insertMigrationQuery
+       filedata
     )
 
 getTrackedMigrationNames :: IO [String]
@@ -101,4 +110,23 @@ getTrackedMigrationNames = do
         )
   connInfo <- getConnectInfo
   withConnect connInfo (\ conn -> withTransaction conn (statement conn))
-  
+
+getUnappliedMigrations :: IO [Migration]
+getUnappliedMigrations = do
+  connInfo <- getConnectInfo
+  withConnect connInfo $ \ conn -> do
+    migrationTuples <- query_ conn [sql|
+                         SELECT filename, version, applied
+                         FROM parmenides_migration
+                         WHERE applied = FALSE
+                         ORDER BY version ASC
+                         |]
+    pure $ fmap (\ (f, v, a) -> Migration f v a) migrationTuples
+
+-- TODO Implement this function
+-- Implementation include transaction rollback
+applyMigration :: String -> IO ()
+applyMigration filepath =
+  let filename = drop 11 filepath
+  in putStrLn $ "Applied " ++ filename ++ " to database"
+

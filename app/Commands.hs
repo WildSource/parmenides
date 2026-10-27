@@ -1,5 +1,6 @@
 module Commands where
 
+import Data.Foldable (traverse_)
 import Data.List
   ( (\\)
   , sort
@@ -40,6 +41,11 @@ import Dialect.Postgresql
 import Command
   ( Command (..)
   , mkHelpDoc
+  )
+import Dialect.Internal (Migration (..))  
+import Dialect.Postgresql
+  ( applyMigration
+  , getUnappliedMigrations
   )
 
 commands :: [Command]
@@ -217,6 +223,7 @@ migrateCommand = Command
   { name = "migrate"
   , run = (\ _ -> do
               run findMigrations []
+              migrateCommandInternal
           )
   , helpDoc =
       mkHelpDoc
@@ -225,9 +232,10 @@ migrateCommand = Command
       "Runs findMigrations first cmd and then runs unapplied migrations"
   }
 
--- TODO Change Table schema to include timestamp (from filename) in database as field named "version" 
 migrateCommandInternal :: IO ()
-migrateCommandInternal = undefined
+migrateCommandInternal = do
+  migrations <- getUnappliedMigrations
+  traverse_ (\ (Migration filename _ _ ) -> applyMigration $ "migrations/" ++ filename) migrations
  
 getUntrackedMigrationInDirectory :: IO [String]
 getUntrackedMigrationInDirectory = do
