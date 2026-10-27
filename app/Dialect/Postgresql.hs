@@ -51,7 +51,8 @@ createMigrationTrackingTable =
                                          id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                                          filename VARCHAR(50) NOT NULL,
                                          filepath VARCHAR(50) NOT NULL,
-                                         applied BOOLEAN NOT NULL |]
+                                         applied BOOLEAN NOT NULL
+                                         ) |]
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement conn)
 
 createTrackedMigration :: String -> String -> IO (Either SqlError Int64)
@@ -62,13 +63,13 @@ createTrackedMigration filename filepath =
         execute
         conn
         [sql| INSERT INTO parmenides_migration (filename, filepath, applied)
-            VALUES (?, ?, ?);|]
+            VALUES (?, ?, ?)|]
           (filename, filepath, False)
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement conn)
 
 type Filename = String
 type Filepath = String
-createTrackedMigrations :: [(Filename, Filepath)] -> IO (Either SqlError Int64)
+createTrackedMigrations :: [(Filename, Filepath, Bool)] -> IO (Either SqlError Int64)
 createTrackedMigrations filedata = do
   connInfo <- getConnectInfo
   withConnect
@@ -78,7 +79,7 @@ createTrackedMigrations filedata = do
        executeMany
        conn
        [sql| INSERT INTO parmenides_migration (filename, filepath, applied)
-            VALUES (?, ?, FALSE); |]
+            VALUES (?, ?, ?) |]
          filedata
     )
 
@@ -87,7 +88,7 @@ getTrackedMigrationNames = do
   let statement :: Connection -> IO [String]
       statement =
         (\ conn' -> do
-            values <- query_ conn' [sql| SELECT filename FROM parmenides_migration; |]
+            values <- query_ conn' [sql| SELECT filename FROM parmenides_migration |]
             pure $ fmap (\ (Only filename) -> filename) values
         )
   connInfo <- getConnectInfo
