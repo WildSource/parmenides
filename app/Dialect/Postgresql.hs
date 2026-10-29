@@ -2,6 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Dialect.Postgresql where
 
+import Data.String (fromString)
 import Data.Int (Int64)
 import Data.Word (Word16)
 import System.Environment (getEnv)
@@ -116,17 +117,32 @@ getUnappliedMigrations = do
   connInfo <- getConnectInfo
   withConnect connInfo $ \ conn -> do
     migrationTuples <- query_ conn [sql|
-                         SELECT filename, version, applied
+                         SELECT *
                          FROM parmenides_migration
                          WHERE applied = FALSE
                          ORDER BY version ASC
                          |]
-    pure $ fmap (\ (f, v, a) -> Migration f v a) migrationTuples
+    pure $ fmap (\ (i, fn, fp, v, a) -> Migration i fn fp v a) migrationTuples
 
 -- TODO Implement this function
--- Implementation include transaction rollback
-applyMigration :: String -> IO ()
-applyMigration filepath =
-  let filename = drop 11 filepath
-  in putStrLn $ "Applied " ++ filename ++ " to database"
+applyMigrations :: [(Filename, Filepath)] -> IO ()
+applyMigrations migrationRefs = do
+  let queriesStr = fmap (readFile . snd) migrationRefs
+  connInfo <- getConnectInfo
+  _ <- withConnect connInfo $ \ conn -> do
+    affRows' <- traverse (applyMigration conn) queriesStr
+    putStrLn "Migration got applied without problems"
+    pure affRows'
+    -- Change migration status to applied = TRUE
+    
+  putStrLn "Being implemented"
+  where
+    applyMigration :: Connection -> IO String -> IO Int64
+    applyMigration conn queryStrIO = do
+      withTransaction conn $ do
+        queryStr <- queryStrIO
+        execute_ conn $ fromString queryStr
+
+makeMigrationStateApplied :: Int -> IO ()
+makeMigrationStateApplied = undefined
 

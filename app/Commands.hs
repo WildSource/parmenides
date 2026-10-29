@@ -44,7 +44,7 @@ import Command
   )
 import Dialect.Internal (Migration (..))  
 import Dialect.Postgresql
-  ( applyMigration
+  ( applyMigrations
   , getUnappliedMigrations
   )
 
@@ -232,10 +232,13 @@ migrateCommand = Command
       "Runs findMigrations first cmd and then runs unapplied migrations"
   }
 
+-- TODO Make applyMigrations safer
 migrateCommandInternal :: IO ()
 migrateCommandInternal = do
   migrations <- getUnappliedMigrations
-  traverse_ (\ (Migration filename _ _ ) -> applyMigration $ "migrations/" ++ filename) migrations
+  -- affectedRows <- applyMigrations
+  -- putStrLn $ "Affected Rows: " ++ affectedRows
+  putStrLn "In progress"
  
 getUntrackedMigrationInDirectory :: IO [String]
 getUntrackedMigrationInDirectory = do
