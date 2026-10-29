@@ -15,7 +15,7 @@ getFlavor str =
     _ -> Nothing
 
 data Migration = Migration
-  { id :: Int
+  { identifier :: Int
   , filename :: String
   , filepath :: String  
   , version :: Int

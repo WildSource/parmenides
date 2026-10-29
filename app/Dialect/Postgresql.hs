@@ -112,8 +112,8 @@ getTrackedMigrationNames = do
   connInfo <- getConnectInfo
   withConnect connInfo (\ conn -> withTransaction conn (statement conn))
 
-getUnappliedMigrations :: IO [Migration]
-getUnappliedMigrations = do
+getOrderedUnappliedMigrations :: IO [Migration]
+getOrderedUnappliedMigrations = do
   connInfo <- getConnectInfo
   withConnect connInfo $ \ conn -> do
     migrationTuples <- query_ conn [sql|
@@ -124,25 +124,32 @@ getUnappliedMigrations = do
                          |]
     pure $ fmap (\ (i, fn, fp, v, a) -> Migration i fn fp v a) migrationTuples
 
--- TODO Implement this function
-applyMigrations :: [(Filename, Filepath)] -> IO ()
-applyMigrations migrationRefs = do
-  let queriesStr = fmap (readFile . snd) migrationRefs
+-- TODO make it safer by returning Either
+-- Assume migrations are pre-sorted (data should come from getOrderedUnappliedMigrations)
+applyMigrations :: [Migration] -> IO [Int64]
+applyMigrations migrations = do
   connInfo <- getConnectInfo
-  _ <- withConnect connInfo $ \ conn -> do
-    affRows' <- traverse (applyMigration conn) queriesStr
-    putStrLn "Migration got applied without problems"
-    pure affRows'
-    -- Change migration status to applied = TRUE
-    
-  putStrLn "Being implemented"
+  affectedRows <- withConnect connInfo $ \ conn ->
+    traverse (applyMigration conn) migrations
+  pure affectedRows
   where
-    applyMigration :: Connection -> IO String -> IO Int64
-    applyMigration conn queryStrIO = do
+    applyMigration :: Connection -> Migration -> IO Int64
+    applyMigration conn (Migration { identifier, filename, filepath }) = do
       withTransaction conn $ do
-        queryStr <- queryStrIO
-        execute_ conn $ fromString queryStr
+        queryStr <- readFile filepath
+        affRow <- execute_ conn $ fromString queryStr
+        _ <- makeMigrationStateApplied conn identifier
+        putStrLn $ "Applied migration " ++ filename ++ " successfully"
+        pure affRow
 
-makeMigrationStateApplied :: Int -> IO ()
-makeMigrationStateApplied = undefined
+    makeMigrationStateApplied :: Connection -> Int -> IO Int64
+    makeMigrationStateApplied conn identifier =
+      execute
+      conn
+      [sql|
+          UPDATE parmenides_migration
+          SET applied = TRUE
+          WHERE id = ?
+          |]
+        (Only identifier)
 

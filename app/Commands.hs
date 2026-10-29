@@ -1,6 +1,5 @@
 module Commands where
 
-import Data.Foldable (traverse_)
 import Data.List
   ( (\\)
   , sort
@@ -42,10 +41,9 @@ import Command
   ( Command (..)
   , mkHelpDoc
   )
-import Dialect.Internal (Migration (..))  
 import Dialect.Postgresql
   ( applyMigrations
-  , getUnappliedMigrations
+  , getOrderedUnappliedMigrations
   )
 
 commands :: [Command]
@@ -232,13 +230,12 @@ migrateCommand = Command
       "Runs findMigrations first cmd and then runs unapplied migrations"
   }
 
--- TODO Make applyMigrations safer
+-- TODO Make applyMigrations safer by handling Either
 migrateCommandInternal :: IO ()
 migrateCommandInternal = do
-  migrations <- getUnappliedMigrations
-  -- affectedRows <- applyMigrations
-  -- putStrLn $ "Affected Rows: " ++ affectedRows
-  putStrLn "In progress"
+  migrations <- getOrderedUnappliedMigrations
+  _ <- applyMigrations migrations
+  putStrLn "Migrations have been applied successfully"
  
 getUntrackedMigrationInDirectory :: IO [String]
 getUntrackedMigrationInDirectory = do
