@@ -21,12 +21,11 @@ It will create a migrations directory where it will keep and manage sql script f
 It will also create a environment file (.env) where you have to define some values.  
 The variables will already be defined, so all is left to do is to give them values.  
 
-
-
 # TODO
-
+## Done for 0.1.0.0
 - [x] Ordered list of migrations
 - [x] A tracking table that records which migration ran and those who did no run yet
 - [x] A way to invoke it (cli binary executable)
-- [ ] A runner that finds unapplied migration and runs them in order
-
+- [X] A runner that finds unapplied migration and runs them in order
+## For 0.1.0.1
+- [ ] Migration checksum
