@@ -105,7 +105,7 @@ setupInternal = do
 
     createParmenidesEnvironmentFile :: IO ()
     createParmenidesEnvironmentFile
-      =  writeFile "parmenides.env" (render envFile)  
+      =  writeFile "parmenides.env" ((render envFile) ++ "\n")
       >> putStrLn "parmenides.env environment file created"
       
     -- might need to handle other database other than Postgresql in the future
@@ -115,8 +115,7 @@ setupInternal = do
       text "PARMENIDES_PORT=" $$
       text "PARMENIDES_USER=" $$
       text "PARMENIDES_NAME=" $$
-      text "PARMENIDES_PASSWORD=" $$
-      text " "
+      text "PARMENIDES_PASSWORD=\n"
 
 setupTrackingCommand :: Command
 setupTrackingCommand =
@@ -230,12 +229,18 @@ migrateCommand = Command
       "Runs findMigrations first cmd and then runs unapplied migrations"
   }
 
--- TODO Make applyMigrations safer by handling Either
 migrateCommandInternal :: IO ()
 migrateCommandInternal = do
   migrations <- getOrderedUnappliedMigrations
-  _ <- applyMigrations migrations
-  putStrLn "Migrations have been applied successfully"
+  result <- applyMigrations migrations
+  either
+    (\ (e :: SqlError) -> do
+        print e
+        errorCommand "A migration failed to apply"
+    )
+    (\ _ -> putStrLn "Migrations have been applied successfully")
+    result
+  
  
 getUntrackedMigrationInDirectory :: IO [String]
 getUntrackedMigrationInDirectory = do
