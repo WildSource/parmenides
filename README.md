@@ -29,3 +29,8 @@ The variables will already be defined, so all is left to do is to give them valu
 - [X] A runner that finds unapplied migration and runs them in order
 ## For 0.1.0.1
 - [ ] Migration checksum
+
+# Stability
+- [x] End to end happy path
+- [x] Idempotence
+- [ ] drift/tamper detection (checksum) (For 0.1.0.1)
