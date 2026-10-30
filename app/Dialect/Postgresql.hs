@@ -2,6 +2,11 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Dialect.Postgresql where
 
+import Control.Monad.Trans.Except
+  ( ExceptT (..)
+  , runExceptT
+  )
+import Data.Foldable (traverse_)
 import Data.String (fromString)
 import Data.Int (Int64)
 import Data.Word (Word16)
@@ -126,20 +131,19 @@ getOrderedUnappliedMigrations = do
 
 -- TODO make it safer by returning Either
 -- Assume migrations are pre-sorted (data should come from getOrderedUnappliedMigrations)
-applyMigrations :: [Migration] -> IO [Int64]
+applyMigrations :: [Migration] -> IO (Either SqlError ())
 applyMigrations migrations = do
   connInfo <- getConnectInfo
-  affectedRows <- withConnect connInfo $ \ conn ->
-    traverse (applyMigration conn) migrations
-  pure affectedRows
-  where
-    applyMigration :: Connection -> Migration -> IO Int64
+  withConnect connInfo $ \ conn ->
+    runExceptT $ traverse_ (ExceptT . applyMigration conn) migrations
+  where      
+    applyMigration :: Connection -> Migration -> IO (Either SqlError Int64)
     applyMigration conn (Migration { identifier, filename, filepath }) = do
-      withTransaction conn $ do
+      try $ withTransaction conn $ do
         queryStr <- readFile filepath
         affRow <- execute_ conn $ fromString queryStr
         _ <- makeMigrationStateApplied conn identifier
-        putStrLn $ "Applied migration " ++ filename ++ " successfully"
+        putStrLn $ "Migration " ++ filename ++ " has been successfully applied"
         pure affRow
 
     makeMigrationStateApplied :: Connection -> Int -> IO Int64
