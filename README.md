@@ -30,7 +30,7 @@ Meaning that the api is definitive for 1.0 but reliability and program behavior 
 
 ## Stability
 - Every migrations are ran through a transaction that rollback if there's an error.
-- Paremnides has idempotency, meaning that if you rerun a migration it will not change the db or anything.
+- Parmenides has idempotency, meaning that if you rerun a migration it will not change the db or anything.
 - No migration checksum yet.
 
 # Install
