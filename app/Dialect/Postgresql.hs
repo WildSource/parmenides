@@ -28,7 +28,12 @@ import Database.PostgreSQL.Simple
   , withTransaction
   )
 
-import Dialect.Internal (Migration (..))  
+import Dialect.Internal
+  ( Migration (..)
+  , Filename
+  , Filepath
+  , Version
+  )  
 
 -- TODO Apply Reader Monad to these implementation to reduce boilerplate on Connection handling
 getConnectInfo :: IO ConnectInfo
@@ -88,9 +93,6 @@ createTrackedMigration filename filepath version =
         (filename, filepath, version, False)
   in  getConnectInfo >>= flip withConnect (\ conn -> withTransaction conn $ statement conn)
 
-type Filename = String
-type Filepath = String
-type Version = String
 createTrackedMigrations
   :: [(Filename, Filepath, Version, Bool)]
   -> IO (Either SqlError Int64)

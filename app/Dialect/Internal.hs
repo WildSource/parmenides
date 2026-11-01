@@ -1,5 +1,9 @@
 module Dialect.Internal where
 
+type Filename = String
+type Filepath = String
+type Version = String
+
 data Flavor
   = SQLite
   | MySQL
