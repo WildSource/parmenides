@@ -10,14 +10,20 @@ data Flavor
   | PostgreSQL
   deriving Show
 
-getFlavor :: String -> Maybe Flavor
-getFlavor str =
+mkFlavor :: String -> Maybe Flavor
+mkFlavor str =
   case str of
     "sqlite"     -> Just SQLite
     "mysql"      -> Just MySQL
     "postgresql" -> Just PostgreSQL
     _ -> Nothing
 
+{-
+Migration (the haskell type) are never created for INSERTs.
+They are only created and used when reading from the db.
+which means that they are already valid and thus
+there's no need for a smart constructor to inforce invariance.
+-}
 data Migration = Migration
   { identifier :: Int
   , filename :: String

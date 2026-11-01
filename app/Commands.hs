@@ -31,6 +31,10 @@ import System.Console.ANSI (Color(Red))
 
 import Log (applyColor)
 import Utility (getTimestamp)
+import Dialect.Internal
+  ( Flavor (..)
+  , mkFlavor
+  )
 import Dialect.Postgresql
   ( createMigrationTrackingTable
   , createTrackedMigration
@@ -79,43 +83,70 @@ setupCommand :: Command
 setupCommand = 
   Command
   { name = "setup"
-  , run = (\ args -> do
-              verifyArguments args
-              unless (not (null args)) setupInternal
-          )
+  , run = run
   , helpDoc =
       mkHelpDoc
       "setup"
-      []
-      "Creates a migrations/ directory and an environment file for parmenides"
+      ["database"]
+      "Creates a migrations/ dir and a db specific env file for parmenides"
   }
+  where
+    run :: [String] -> IO ()
+    run args = do
+      case NE.nonEmpty args of
+        Nothing ->
+          errorCommand "No database argument was given to the setup command\n"
+        Just args' ->
+          maybe
+          (errorCommand $ "Wrong argument provided to the setup command\n"
+           ++ "try (\"sqlite\", \"postgresql\", \"mysql\")"
+          )
+          setupInternal
+          (mkFlavor $ NE.head args')
 
-setupInternal :: IO ()
-setupInternal = do
+setupInternal :: Flavor -> IO ()
+setupInternal dbFlavor = do
   dirExist <- doesDirectoryExist "migrations"
   when (not dirExist) createMigrationDirectory
 
   fileExist <- doesFileExist "parmenides.env"
-  when (not fileExist) createParmenidesEnvironmentFile
+  when (not fileExist) $ createParmenidesEnvironmentFile dbFlavor
   where
     createMigrationDirectory :: IO ()
     createMigrationDirectory
       =  createDirectoryIfMissing True "migrations"
       >>  putStrLn "migrations/ directory created"
 
-    createParmenidesEnvironmentFile :: IO ()
-    createParmenidesEnvironmentFile
-      =  writeFile "parmenides.env" ((render envFile) ++ "\n")
+    createParmenidesEnvironmentFile :: Flavor -> IO ()
+    createParmenidesEnvironmentFile flavor =
+      let
+        generatedEnvFile =
+          case flavor of
+            SQLite -> envFileSqlite
+            PostgreSQL -> envFilePostgresql
+            MySQL -> envFileMySql
+        in
+      writeFile "parmenides.env" ((render generatedEnvFile) ++ "\n")
       >> putStrLn "parmenides.env environment file created"
       
     -- might need to handle other database other than Postgresql in the future
-    envFile :: Doc
-    envFile =
+    envFilePostgresql :: Doc
+    envFilePostgresql =
+      text "PARMENIDES_FLAVOR=postgresql" $$
       text "PARMENIDES_HOST=" $$
       text "PARMENIDES_PORT=" $$
       text "PARMENIDES_USER=" $$
       text "PARMENIDES_NAME=" $$
       text "PARMENIDES_PASSWORD=\n"
+
+    envFileSqlite :: Doc
+    envFileSqlite =
+      text "PARMENIDES_FLAVOR=sqlite" $$
+      text "PARMENIDES_DB_FILE=\n"
+
+    -- TODO env file for Mysql (by extension Mariadb)
+    envFileMySql :: Doc
+    envFileMySql = undefined
 
 setupTrackingCommand :: Command
 setupTrackingCommand =
@@ -265,4 +296,12 @@ verifyArguments args =
   when
   (not (null args))
   (errorCommand "Arguments were provided to a command that doesn't need them")
+
+
+validateArguments :: String -> [String] -> Maybe String
+validateArguments arg args =
+  undefined
+  where
+    validateArgument' :: String -> [String] -> Bool
+    validateArgument' arg args = arg `elem` args
   

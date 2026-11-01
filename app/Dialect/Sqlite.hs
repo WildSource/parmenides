@@ -3,22 +3,14 @@ module Dialect.Sqlite where
 
 import Data.Int (Int64)
 
-import Database.PostgreSQL.Simple
-  ( ConnectInfo (..)
-  , Connection
+import Database.SQLite.Simple
+  ( Connection
   , Query
-  , SqlError
-  , Only (..)
-  , executeMany
-  , execute
-  , execute_
-  , query_
-  , withConnect
-  , withTransaction
+  , FormatError
   )
 
 import Dialect.Internal
-  ( Migration (..)
+  ( Migration
   , Filename
   , Filepath
   , Version
@@ -38,12 +30,12 @@ createTrackedMigration
   :: String
   -> String
   -> String
-  -> IO (Either SqlError Int64)
+  -> IO (Either FormatError Int64)
 createTrackedMigration = undefined  
 
 createTrackedMigrations
   :: [(Filename, Filepath, Version, Bool)]
-  -> IO (Either SqlError Int64)
+  -> IO (Either FormatError Int64)
 createTrackedMigrations = undefined  
 
 getTrackedMigrationNames :: IO [String]
@@ -52,5 +44,5 @@ getTrackedMigrationNames = undefined
 getOrderedUnappliedMigrations :: IO [Migration]
 getOrderedUnappliedMigrations = undefined
 
-applyMigrations :: [Migration] -> IO (Either SqlError ())
+applyMigrations :: [Migration] -> IO (Either FormatError ())
 applyMigrations = undefined
