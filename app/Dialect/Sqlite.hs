@@ -1,10 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Dialect.Sqlite where
 
-import Data.Int (Int64)
-
+import Database.SQLite.Simple.QQ (sql)
+import System.Environment (getEnv)
 import Database.SQLite.Simple
-  ( Connection
+  ( withConnection
+  , withTransaction
+  , execute_
   , Query
   , FormatError
   )
@@ -16,12 +19,25 @@ import Dialect.Internal
   , Version
   )  
 
--- TODO takes file db path from env file
-getConnection :: IO Connection
-getConnection = undefined
+getConnection :: IO String
+getConnection = getEnv "PARMENIDES_DB_FILE"
 
-createMigrationTrackingTable :: IO Int64
-createMigrationTrackingTable = undefined
+-- TODO make commands read env file for db flavor
+createMigrationTrackingTable :: IO ()
+createMigrationTrackingTable = do
+  connPath <- getConnection 
+  withConnection connPath $ \ conn ->
+    withTransaction conn $ execute_ conn
+    [sql|
+        CREATE TABLE IF NOT EXISTS parmenides_migration (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename VARCHAR(50) NOT NULL,
+        filepath VARCHAR(50) NOT NULL,
+        version BIGINT NOT NULL,
+        applied BOOLEAN NOT NULL
+        )
+        |]
+    
 
 insertMigrationQuery :: Query
 insertMigrationQuery = undefined
@@ -30,12 +46,12 @@ createTrackedMigration
   :: String
   -> String
   -> String
-  -> IO (Either FormatError Int64)
+  -> IO (Either FormatError ())
 createTrackedMigration = undefined  
 
 createTrackedMigrations
   :: [(Filename, Filepath, Version, Bool)]
-  -> IO (Either FormatError Int64)
+  -> IO (Either FormatError ())
 createTrackedMigrations = undefined  
 
 getTrackedMigrationNames :: IO [String]
