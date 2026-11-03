@@ -67,6 +67,7 @@ Commands:
 2. Run the `parmenides setup` command.  
    It will create a migrations directory where it will keep and manage sql script files.  
    It will also create a environment file (parmenides.env) where you have to define some values.  
+   If a gitignore file is present, both of these files are automatically added to your gitignore.  
    The variables will already be defined, so all is left to do is to give them values.  
    **Very important**, the parser for env files needs a newline at the end of the file or it will give you an error. (It's already handled by the mkMigration command)
 3. With the values to the env file provided, run the `parmenides setupTracking` command to create a tracking table in your current database.  
@@ -90,15 +91,10 @@ Commands:
    Which implicitly executes the findMigrations commands to find any migrations that are missing or not tracked and adds them to the tracking table (Usually migrations that are added manually and not through the mkMigration command)  
    Then gets all the migrations that are not applied and applies them sequentially in an ordered manner. Each migrations are ran through a transaction so if any returns an error it will stop and report the error.
    
-> Checksums are not implemented yet   
-   
 # Roadmap
 
 Error message are kind of lack luster but they will be implemented in the future when specific errors will arise from issue reporting (Hopefully).
 
-## For 0.1.0.1
-- [ ] Migration checksum
-
-## For 0.2.0.0
 - [ ] Sqlite support
+- [ ] Migration checksum
 
