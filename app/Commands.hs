@@ -100,7 +100,6 @@ setupInternal = do
     createMigrationDirectory =
       let dirName = "migrations"
       in  createDirectoryIfMissing True dirName
-      >>  addToGitignore (dirName ++ "/")
       >>  putStrLn (dirName ++ "/ directory created")
 
     createParmenidesEnvironmentFile :: IO ()

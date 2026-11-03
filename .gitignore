@@ -24,5 +24,4 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 *.env
-migrations/
 parmenides.env
