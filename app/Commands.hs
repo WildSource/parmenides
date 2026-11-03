@@ -4,10 +4,6 @@ import Data.List
   ( (\\)
   , sort
   )
-import System.Directory
-  ( removeFile
-  , getDirectoryContents
-  )
 import qualified Data.List.NonEmpty as NE
 import Control.Monad
   ( when
@@ -17,6 +13,8 @@ import System.Directory
   ( createDirectoryIfMissing
   , doesDirectoryExist
   , doesFileExist
+  , removeFile
+  , getDirectoryContents
   )
 
 import Text.PrettyPrint
@@ -113,21 +111,27 @@ setupInternal dbFlavor = do
   when (not fileExist) $ createParmenidesEnvironmentFile dbFlavor
   where
     createMigrationDirectory :: IO ()
-    createMigrationDirectory
-      =  createDirectoryIfMissing True "migrations"
-      >>  putStrLn "migrations/ directory created"
+    createMigrationDirectory =
+      let dirName = "migrations"
+      in  createDirectoryIfMissing True dirName
+      >>  putStrLn (dirName ++ "/ directory created")
 
     createParmenidesEnvironmentFile :: Flavor -> IO ()
     createParmenidesEnvironmentFile flavor =
-      let
-        generatedEnvFile =
-          case flavor of
-            SQLite -> envFileSqlite
-            PostgreSQL -> envFilePostgresql
-            MySQL -> envFileMySql
-        in
-      writeFile "parmenides.env" ((render generatedEnvFile) ++ "\n")
-      >> putStrLn "parmenides.env environment file created"
+      let filename = "parmenides.env"
+          generatedEnvFile =
+            case flavor of
+              SQLite -> envFileSqlite
+              PostgreSQL -> envFilePostgresql
+              MySQL -> envFileMySql
+      in writeFile filename ((render generatedEnvFile) ++ "\n")
+      >> addToGitignore filename
+      >> putStrLn (filename ++ " environment file created")
+
+    addToGitignore :: String -> IO ()
+    addToGitignore filepath = do
+      ignoreExist <- doesFileExist ".gitignore"
+      when ignoreExist $ appendFile ".gitignore" $ "\n" ++ filepath
       
     -- might need to handle other database other than Postgresql in the future
     envFilePostgresql :: Doc
