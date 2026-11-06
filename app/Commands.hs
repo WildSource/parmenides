@@ -1,13 +1,20 @@
+{-# LANGUAGE OverloadedRecordDot  #-} 
 module Commands where
 
+import Control.Monad (void)
+import Control.Exception (displayException)
+import System.Environment (getEnv)
 import Data.List
   ( (\\)
-  , sort
+  , find
+  )
+import Data.List.NonEmpty
+  ( NonEmpty
+  , nonEmpty
   )
 import qualified Data.List.NonEmpty as NE
 import Control.Monad
   ( when
-  , unless
   )
 import System.Directory
   ( createDirectoryIfMissing
@@ -24,64 +31,61 @@ import Text.PrettyPrint
   , vcat
   , Doc
   )
-import Database.PostgreSQL.Simple (SqlError (..))
-import System.Console.ANSI (Color(Red))
+import Database.PostgreSQL.Simple
+  ( FormatError (..)
+  , SqlError (..)
+  )
 
-import Log (applyColor)
 import Utility (getTimestamp)
-import Dialect.Internal
+import Log (reportError)
+import qualified Dialect as Dialect
+import Dialect
+  ( Dialect (..)
+  , SomeDialect (..)
+  )
+import Dialect.Types (Migration)  
+import Dialect.Flavor
   ( Flavor (..)
   , mkFlavor
-  )
-import Dialect.Postgresql
-  ( createMigrationTrackingTable
-  , createTrackedMigration
-  , createTrackedMigrations  
-  , getTrackedMigrationNames
-  )
+  )  
+import qualified Dialect.Sqlite as DS
+import qualified Dialect.Postgresql as DP
+import qualified Command as Command  
 import Command
   ( Command (..)
+  , Commands (..)
   , mkHelpDoc
   )
-import Dialect.Postgresql
-  ( applyMigrations
-  , getOrderedUnappliedMigrations
-  )
 
-commands :: [Command]
-commands =
-  [ helpCommand
-  , setupCommand
-  , setupTrackingCommand
-  , mkMigrationCommand
-  , findMigrations
-  , migrateCommand
-  ]
+commands :: Commands
+commands = Commands
+  { helpCmd = helpCommand
+  , setupCmd = setupCommand
+  , setupTrackingCmd = undefined--setupTrackingCommand
+  , mkMigrationCmd = undefined--mkMigrationCommand
+  , migrateCmd = undefined--migrateCommand
+  }
 
 helpCommand :: Command
 helpCommand = 
   Command
   { name = "help"
-  , run = (\ args -> do
-              verifyArguments args
-              unless (not (null args)) helpInternal
-          )
+  , run = (\ _ -> helpInternal)
   , helpDoc = mkHelpDoc "help" [] "This is the help command" 
   }
-
-helpInternal :: IO ()
-helpInternal =
-  let helpDocs = fmap (helpDoc) commands
-      usage = text "Usage: parmenides CMD [ARG ...]"
-      help' = text "Commands:" $$ vcat helpDocs
-  in 
-    putStrLn $ render $ usage $$ help'  
+  where
+    helpInternal :: IO ()
+    helpInternal =
+      let helpDocs = fmap (helpDoc) $ Command.toList commands
+          usage = text "Usage: parmenides CMD [ARG ...]"
+          help' = text "Commands:" $$ vcat helpDocs
+      in  putStrLn $ render $ usage $$ help'  
 
 setupCommand :: Command
 setupCommand = 
   Command
   { name = "setup"
-  , run = run
+  , run = (either id setupInternal . Command.parseArgs)
   , helpDoc =
       mkHelpDoc
       "setup"
@@ -89,27 +93,19 @@ setupCommand =
       "Creates a migrations/ dir and a db specific env file for parmenides"
   }
   where
-    run :: [String] -> IO ()
-    run args = do
-      case NE.nonEmpty args of
+    setupInternal :: NonEmpty String -> IO ()
+    setupInternal flavorStr = do
+      dirExist <- doesDirectoryExist "migrations"
+      when (not dirExist) createMigrationDirectory
+
+      fileExist <- doesFileExist "parmenides.env"
+      case mkFlavor $ NE.head flavorStr of
         Nothing ->
-          errorCommand "No database argument was given to the setup command\n"
-        Just args' ->
-          maybe
-          (errorCommand $ "Wrong argument provided to the setup command\n"
-           ++ "try (\"sqlite\", \"postgresql\", \"mysql\")"
-          )
-          setupInternal
-          (mkFlavor $ NE.head args')
+          reportError $
+          "Database flavor in env file is wrong, try \"sqlite\", \"postgresql\" or \"mysql\""
+        Just flavor -> 
+          when (not fileExist) $ createParmenidesEnvironmentFile flavor
 
-setupInternal :: Flavor -> IO ()
-setupInternal dbFlavor = do
-  dirExist <- doesDirectoryExist "migrations"
-  when (not dirExist) createMigrationDirectory
-
-  fileExist <- doesFileExist "parmenides.env"
-  when (not fileExist) $ createParmenidesEnvironmentFile dbFlavor
-  where
     createMigrationDirectory :: IO ()
     createMigrationDirectory =
       let dirName = "migrations"
@@ -133,7 +129,6 @@ setupInternal dbFlavor = do
       ignoreExist <- doesFileExist ".gitignore"
       when ignoreExist $ appendFile ".gitignore" $ "\n" ++ filepath
       
-    -- might need to handle other database other than Postgresql in the future
     envFilePostgresql :: Doc
     envFilePostgresql =
       text "PARMENIDES_FLAVOR=postgresql" $$
@@ -156,10 +151,7 @@ setupTrackingCommand :: Command
 setupTrackingCommand =
   Command
   { name = "setupTracking"
-  , run = (\ args -> do
-              verifyArguments args
-              unless (not (null args)) setupTrackingInternal
-          )
+  , run = (\_ -> setupTrackingInternal)
   , helpDoc =
       mkHelpDoc
       "setupTracking"
@@ -168,21 +160,28 @@ setupTrackingCommand =
   }
 
 setupTrackingInternal :: IO ()
-setupTrackingInternal =
-  let eventLog = "Migration tracking table has been created and committed to the database"
-  in  createMigrationTrackingTable
-      >> putStrLn eventLog      
+setupTrackingInternal = do
+  someDialect <- getDialect
+  void $ Dialect.withSomeDialect
+       someDialect
+       (\ dialect -> do
+           conn <- dialect.getConnection
+           result <- dialect.createMigrationTrackingTable conn
+           case result of
+             Left err ->
+               reportError "Setting Tracking table failed"
+               >> putStrLn (displayException err)
+             Right _ ->
+               putStrLn "Migration tracking table has been created and committed to the database"
+       )
 
+{-
+  
 mkMigrationCommand :: Command
 mkMigrationCommand =
   Command
   { name = "mkMigration"
-  , run =
-      (\ args ->
-          maybe
-          (errorCommand "Command \"mkMigration\" was given insufficient arguments for execution")
-          (mkMigrationInternal . NE.head)
-          (NE.nonEmpty args))
+  , run = undefined     
   , helpDoc =
       mkHelpDoc
       "mkMigration"
@@ -206,62 +205,21 @@ mkMigrationInternal title = do
     Left (err :: SqlError) ->
       removeFile filepath
       >> print err
-      >> errorCommand "Failed insertion of tracked migration in database"
+      >> reportError "Failed insertion of tracked migration in database"
       >> pure ()
       
     Right _ -> 
       pure ()
-
-findMigrations :: Command
-findMigrations = Command
-  { name = "findMigrations"
-  , run = (\ args -> do
-              verifyArguments args
-              unless (not (null args)) findMigrationsInternal
-          )
-  , helpDoc =
-      mkHelpDoc
-      "findMigrations"
-      []
-      "Checks for new migrations that are not tracked and add entries for them"
-  }
-
-findMigrationsInternal :: IO ()
-findMigrationsInternal = do
-  untrackedMigrations <- getUntrackedMigrationInDirectory
-  when
-    (not $ null untrackedMigrations)
-    $ scanMigrations untrackedMigrations
-  where
-    scanMigrations :: [String] -> IO ()
-    scanMigrations untrackedMigrations = do
-      let filedataTuple =
-            fmap
-            (\ filename ->
-               let timestampStr = reverse $ take 14 $ drop 4 $ reverse filename 
-               in (filename, "migrations/" ++ filename, timestampStr, False))
-            $ sort untrackedMigrations
-      eitherResult <- createTrackedMigrations filedataTuple
-      either
-        (\ (e :: SqlError) -> do
-            print $ show e
-            errorCommand "New insertions of migration entries failed"
-        )
-        (\ _ -> putStrLn "Adding new migrations to the tracking table")
-        eitherResult
         
 migrateCommand :: Command
 migrateCommand = Command
   { name = "migrate"
-  , run = (\ _ -> do
-              run findMigrations []
-              migrateCommandInternal
-          )
+  , run = undefined
   , helpDoc =
       mkHelpDoc
       "migrate"
       []
-      "Runs findMigrations first cmd and then runs unapplied migrations"
+      "Runs unapplied migrations tracked by Parmenides"
   }
 
 migrateCommandInternal :: IO ()
@@ -271,11 +229,17 @@ migrateCommandInternal = do
   either
     (\ (e :: SqlError) -> do
         print e
-        errorCommand "A migration failed to apply"
+        reportError "A migration failed to apply"
     )
     (\ _ -> putStrLn "Migrations have been applied successfully")
     result
-  
+  where
+    applyMigrations :: [Migration] -> IO (Either FormatError ())
+    applyMigrations migrations = do
+      connPath <- getConnection
+      withConnection connPath $ \ conn ->
+        -- withTransaction
+        runExceptT $ traverse_ (ExceptT . applyMigration conn) migrations
  
 getUntrackedMigrationInDirectory :: IO [String]
 getUntrackedMigrationInDirectory = do
@@ -287,25 +251,20 @@ getMigrationNames :: IO [String]
 getMigrationNames = do
   dirContent <- getDirectoryContents "migrations"
   pure $ filter (\ migration -> migration /= "." && migration /= "..") dirContent  
-  
-errorCommand :: String -> IO ()
-errorCommand message
-  = applyColor Red "Error: "
-  >> putStrLn (render (text message))
-  >> run helpCommand []
 
--- Meant to be used with function that requires no arguments to run
-verifyArguments :: [String] -> IO ()
-verifyArguments args =
-  when
-  (not (null args))
-  (errorCommand "Arguments were provided to a command that doesn't need them")
+-}
 
+getCmd :: String -> Maybe Command
+getCmd name' = find (\ cmd -> name cmd == name') $ Command.toList commands
 
-validateArguments :: String -> [String] -> Maybe String
-validateArguments arg args =
-  undefined
-  where
-    validateArgument' :: String -> [String] -> Bool
-    validateArgument' arg args = arg `elem` args
-  
+getDialect :: IO SomeDialect
+getDialect = do
+  flavorStr <- getEnv "PARMENIDES_FLAVOR"
+  case mkFlavor flavorStr of
+    Nothing -> undefined
+    Just flavor ->
+      case flavor of 
+        SQLite -> pure $ SomeDialect DS.dialect
+        PostgreSQL -> pure $ SomeDialect DP.dialect
+        MySQL -> undefined
+        

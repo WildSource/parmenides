@@ -1,22 +1,8 @@
-module Dialect.Internal where
+module Dialect.Types where
 
 type Filename = String
 type Filepath = String
 type Version = String
-
-data Flavor
-  = SQLite
-  | MySQL
-  | PostgreSQL
-  deriving Show
-
-mkFlavor :: String -> Maybe Flavor
-mkFlavor str =
-  case str of
-    "sqlite"     -> Just SQLite
-    "mysql"      -> Just MySQL
-    "postgresql" -> Just PostgreSQL
-    _ -> Nothing
 
 {-
 Migration (the haskell type) are never created for INSERTs.

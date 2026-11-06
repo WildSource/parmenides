@@ -66,7 +66,9 @@ executable parmenides
                       Command,
                       Commands,
                       Utility,
-                      Dialect.Internal,
+                      Dialect,
+                      Dialect.Flavor,
+                      Dialect.Types,
                       Dialect.Sqlite,
                       Dialect.Postgresql                      
 
@@ -75,6 +77,7 @@ executable parmenides
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.20.1.0,
+                      mtl ^>=2.3.2,
                       pretty,
                       time,
                       directory,

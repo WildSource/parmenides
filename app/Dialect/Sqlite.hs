@@ -2,63 +2,85 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Dialect.Sqlite where
 
+import Data.String (fromString)
+import Control.Exception (try)
+import Data.Functor (void)
+
 import Database.SQLite.Simple.QQ (sql)
 import System.Environment (getEnv)
 import Database.SQLite.Simple
-  ( withConnection
+  ( Only (..)
+  , withConnection
   , withTransaction
+  , execute
   , execute_
-  , Query
   , FormatError
   )
-
-import Dialect.Internal
-  ( Migration
+import Dialect (Dialect (..))
+import Dialect.Types
+  ( Migration (..)
   , Filename
   , Filepath
   , Version
   )  
 
-getConnection :: IO String
-getConnection = getEnv "PARMENIDES_DB_FILE"
+dialect :: Dialect String FormatError
+dialect = Dialect
+  { getConnection = getConnection'
+  , createMigrationTrackingTable = createMigrationTrackingTable'
+  , createTrackedMigration = createTrackedMigration'
+  , applyMigration = applyMigration'
+  }
 
--- TODO make commands read env file for db flavor
-createMigrationTrackingTable :: IO ()
-createMigrationTrackingTable = do
-  connPath <- getConnection 
-  withConnection connPath $ \ conn ->
-    withTransaction conn $ execute_ conn
+
+getConnection' :: IO String
+getConnection' = getEnv "PARMENIDES_DB_FILE"
+
+createMigrationTrackingTable' :: String -> IO (Either FormatError ())
+createMigrationTrackingTable' connStr =
+  withConnection connStr $ \ conn ->
+    withTransaction conn $ try $ void $
+    execute_ conn
     [sql|
         CREATE TABLE IF NOT EXISTS parmenides_migration (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         filename VARCHAR(50) NOT NULL,
         filepath VARCHAR(50) NOT NULL,
         version BIGINT NOT NULL,
-        applied BOOLEAN NOT NULL
+        applied BOOLEAN NOT NULL DEFAULT 0
         )
         |]
     
-
-insertMigrationQuery :: Query
-insertMigrationQuery = undefined
-
-createTrackedMigration
+createTrackedMigration'
   :: String
-  -> String
-  -> String
+  -> Filename
+  -> Filepath
+  -> Version
   -> IO (Either FormatError ())
-createTrackedMigration = undefined  
+createTrackedMigration' connStr filename filepath version =
+  withConnection connStr $ \ conn ->
+    withTransaction conn $ try $ void $ execute conn
+    [sql|
+        INSERT INTO parmenides_migration (filename, filepath, version, applied)
+        VALUES (?, ?, ?, ?)
+        |]
+      (filename, filepath, version, False)
 
-createTrackedMigrations
-  :: [(Filename, Filepath, Version, Bool)]
-  -> IO (Either FormatError ())
-createTrackedMigrations = undefined  
+applyMigration' :: String -> Migration -> IO (Either FormatError ())
+applyMigration' connStr migration = do
+  withConnection connStr $ \ conn -> try $ do
+    queryStr <- readFile $ filepath migration
+    execute_ conn $ fromString queryStr
 
-getTrackedMigrationNames :: IO [String]
-getTrackedMigrationNames = undefined
+markApplied' :: String -> Int -> IO (Either FormatError ())
+markApplied' connStr identifier = do
+  withConnection connStr $ \ conn -> try $ void $
+    execute
+    conn
+    [sql|
+        UPDATE parmenides_migration
+        SET applied = 1
+        WHERE id = ?
+        |]
+      (Only identifier)
 
-getOrderedUnappliedMigrations :: IO [Migration]
-getOrderedUnappliedMigrations = undefined
-
-applyMigrations :: [Migration] -> IO (Either FormatError ())
-applyMigrations = undefined
