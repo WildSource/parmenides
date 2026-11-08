@@ -61,7 +61,7 @@ commands :: Commands
 commands = Commands
   { helpCmd = helpCommand
   , setupCmd = setupCommand
-  , setupTrackingCmd = undefined--setupTrackingCommand
+  , setupTrackingCmd = setupTrackingCommand
   , mkMigrationCmd = undefined--mkMigrationCommand
   , migrateCmd = undefined--migrateCommand
   }
@@ -175,13 +175,11 @@ setupTrackingInternal = do
                putStrLn "Migration tracking table has been created and committed to the database"
        )
 
-{-
-  
 mkMigrationCommand :: Command
 mkMigrationCommand =
   Command
   { name = "mkMigration"
-  , run = undefined     
+  , run = (either id mkMigrationInternal . Command.parseArgs)
   , helpDoc =
       mkHelpDoc
       "mkMigration"
@@ -189,28 +187,33 @@ mkMigrationCommand =
       "Creates a migration file to migrations/ and tracks it"
   }
 
-mkMigrationInternal :: String -> IO ()
+mkMigrationInternal :: NonEmpty String -> IO ()
 mkMigrationInternal title = do
-  timestamp <- getTimestamp
+  someDialect <- getDialect
+  void $ Dialect.withSomeDialect someDialect $ \ dialect -> do
+    conn <- dialect.getConnection
+    timestamp <- getTimestamp
 
-  let timestampStr = show timestamp
-  let filename = title ++ "_" ++ timestampStr ++ ".sql"
-  let filepath = "migrations/" ++ filename
+    let timestampStr = show timestamp
+    let filename = NE.head title ++ "_" ++ timestampStr ++ ".sql"
+    let filepath = "migrations/" ++ filename
   
-  writeFile filepath ""
+    writeFile filepath ""
   
-  result <- createTrackedMigration filename filepath timestampStr
+    result <- dialect.createTrackedMigration conn filename filepath timestampStr
   
-  case result of
-    Left (err :: SqlError) ->
-      removeFile filepath
-      >> print err
-      >> reportError "Failed insertion of tracked migration in database"
-      >> pure ()
+    case result of
+      Left err ->
+        removeFile filepath
+        >> reportError "Failed insertion of tracked migration in database"
+        >> putStrLn (displayException err)
+        >> pure ()
       
-    Right _ -> 
-      pure ()
-        
+      Right _ -> 
+        pure ()
+
+{-
+      
 migrateCommand :: Command
 migrateCommand = Command
   { name = "migrate"
