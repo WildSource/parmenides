@@ -1,8 +1,19 @@
+{-|
+Module: Dialect
+Description: Contains the definition of a database Dialect
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
+
+This module defines what a database dialect is and what it can do.
+-}
 {-# LANGUAGE ExistentialQuantification #-}
 module Dialect where
 
+-- Prelude imports
 import Control.Exception (Exception)
 
+-- User code imports
 import Dialect.Types
   ( Filename
   , Filepath

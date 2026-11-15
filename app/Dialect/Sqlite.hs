@@ -1,11 +1,22 @@
+{-|
+Module: Dialect.Sqlite
+Description: Contains the implementation of Sqlite's db interaction
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
+
+This module contains the low level implementation of database interactions for the Sqlite database specifically.
+-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 module Dialect.Sqlite where
 
+-- Prelude imports
 import Data.String (fromString)
 import Control.Exception (try)
 import Data.Functor (void)
 
+-- Library imports
 import Database.SQLite.Simple.QQ (sql)
 import System.Environment (getEnv)
 import qualified Database.SQLite.Simple as SQLite

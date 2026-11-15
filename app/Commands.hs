@@ -1,31 +1,39 @@
-{-# LANGUAGE OverloadedRecordDot  #-} 
-module Commands where
+{-|
+Module: Commands
+Description: Contains the instances and definition of Parmenides's commands
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
 
+This module contains the implementation of the api defined by Command.
+They are high level and highly generic using Dialect.withSomeDialect which handles actually using the correct database implementation of low level database interactions.
+The module seperates the instance of Command and their actual implementation.
+The function suffixed with 'Internal' means it's their implementation.
+While the Command is the high level representation and contains meta data.
+-}
+{-# LANGUAGE OverloadedRecordDot  #-} 
+module Commands
+  ( getCmd
+  ) where
+
+-- Prelude imports
 import Control.Exception (Exception)
 import Control.Monad (void)
 import Data.Foldable (traverse_)  
 import Control.Exception (displayException)
 import System.Environment (getEnv)
-import Data.List
-  ( (\\)
-  , find
-  )
-import Data.List.NonEmpty
-  ( NonEmpty
-  , nonEmpty
-  )
+import Data.List (find)
+import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NE
-import Control.Monad
-  ( when
-  )
+import Control.Monad (when)
 import System.Directory
   ( createDirectoryIfMissing
   , doesDirectoryExist
   , doesFileExist
   , removeFile
-  , getDirectoryContents
   )
 
+-- library imports
 import Text.PrettyPrint
   (($$)
   , render
@@ -33,11 +41,8 @@ import Text.PrettyPrint
   , vcat
   , Doc
   )
-import Database.PostgreSQL.Simple
-  ( FormatError (..)
-  , SqlError (..)
-  )
 
+-- User code imports
 import Utility (getTimestamp)
 import Log (reportError)
 import qualified Dialect as Dialect
@@ -92,7 +97,7 @@ setupCommand =
       mkHelpDoc
       "setup"
       ["database"]
-      "Creates a migrations/ dir and a db specific env file for parmenides"
+      "Creates a migrations/ dir and a db specific env file"
   }
   where
     setupInternal :: NonEmpty String -> IO ()

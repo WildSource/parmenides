@@ -1,20 +1,35 @@
+{-|
+Module: Command
+Description: Contains the definition of a Command
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
+
+This module contains the definition of what a Command is and what it can do.
+It also contains default properties for the creation of a Command.
+It also provides some helper function to use Command.
+-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-module Command where
+module Command
+  ( Command (..)
+  , executeCommand
+  , Commands (..)
+  , mkHelpDoc
+  , parseArgs
+  , validateArgs
+  , toList
+  ) where
 
-import System.Environment (getEnv)
+-- Prelude imports
 import Data.List.NonEmpty
   ( NonEmpty
   , nonEmpty
   )
 import Data.Char (toUpper)
-import Control.Monad.Reader
-  ( ReaderT
-  , runReaderT
-  )
 
-import LoadEnv (loadEnvFrom)
+-- Library imports
 import qualified Text.PrettyPrint as PP
 import Text.PrettyPrint
   ( nest
@@ -24,9 +39,7 @@ import Text.PrettyPrint
   , Doc
   )
 
-import qualified Dialect as Dialect
-import Dialect (Dialect (..))
-import Dialect.Flavor (mkFlavor)
+-- User code imports
 import Log (reportError)  
 
 data Commands = Commands

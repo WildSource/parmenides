@@ -1,3 +1,14 @@
+{-|
+Module: Dialect.Types
+Description: Contains various data about Dialects
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
+
+This module defines some type aliases and the definition of a Migration.
+Migrations are data representation of the table instances in a database.
+When parmenides fetches data from the database the rows get converted into a Migration.
+-}
 module Dialect.Types where
 
 type Filename = String

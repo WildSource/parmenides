@@ -1,6 +1,17 @@
+{-|
+Module: Utility
+Description: Contains various self contained data procedures
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
+
+This module contains various boilerplaty data fetching and/or formatting
+in the form of functions to call.
+-}
 {-# LANGUAGE NamedFieldPuns #-}
 module Utility where
 
+-- Prelude imports
 import Data.Fixed (Pico)
 import Data.Time
   ( getCurrentTime

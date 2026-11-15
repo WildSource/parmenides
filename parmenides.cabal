@@ -85,15 +85,15 @@ executable parmenides
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.20.1.0,
-                      mtl ^>=2.3.2,
+--                      mtl ^>=2.3.2,
                       pretty,
                       time,
                       directory,
-                      filepath,
-                      transformers,
-                      text,
+--                      filepath,
+--                      transformers,
+--                      text,
                       ansi-terminal ^>=1.1.5,
-                      load-env ^>=0.2.1.0,
+--                      load-env ^>=0.2.1.0,
                       sqlite-simple ^>=0.4.19.0,
                       postgresql-simple ^>=0.7.0.1
 

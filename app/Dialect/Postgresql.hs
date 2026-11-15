@@ -1,34 +1,37 @@
+{-|
+Module: Dialect.Postresql
+Description: Contains the implementation of db interactions for Postgresql
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
+
+This module contains the low level implementation of database interactions that are specific to the Postgresql database.
+-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-module Dialect.Postgresql where
+module Dialect.Postgresql (dialect) where
 
+-- Prelude imports
 import Data.Functor (void)
-import Control.Monad.Trans.Except
-  ( ExceptT (..)
-  , runExceptT
-  )
-import Data.Foldable (traverse_)
 import Data.String (fromString)
-import Data.Int (Int64)
 import Data.Word (Word16)
 import System.Environment (getEnv)
 import Control.Exception (try)
 
+-- Library imports
 import qualified Database.PostgreSQL.Simple as PostgreSQL
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import Database.PostgreSQL.Simple
   ( ConnectInfo (..)
   , Connection
-  , Query
   , SqlError
   , Only (..)
   , execute
   , execute_
   , query_
-  , withConnect
-  , withTransaction
   )
 
+-- User code imports
 import Dialect (Dialect (..))
 import Dialect.Types
   ( Migration (..)
@@ -95,12 +98,6 @@ createTrackedMigration' conn filename filepath version =
       VALUES (?, ?, ?, ?)
       |]
     (filename, filepath, version, False)
-
-{- TODO use this when implementing migrate command
-  connInfo <- getConnectInfo
-  withConnect connInfo $ \ conn ->
-    runExceptT $ traverse_ (ExceptT . applyMigration conn) migrations
--}
 
 applyMigration' :: Connection -> Migration -> IO (Either SqlError ())
 applyMigration' conn (Migration { filename, filepath }) = do
