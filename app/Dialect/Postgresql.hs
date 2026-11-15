@@ -14,6 +14,7 @@ import Data.Word (Word16)
 import System.Environment (getEnv)
 import Control.Exception (try)
 
+import qualified Database.PostgreSQL.Simple as PostgreSQL
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import Database.PostgreSQL.Simple
   ( ConnectInfo (..)
@@ -36,12 +37,17 @@ import Dialect.Types
   , Version
   )  
 
-dialect :: Dialect ConnectInfo SqlError
+dialect :: Dialect ConnectInfo Connection SqlError
 dialect = Dialect
-  { getConnection = getConnectInfo'
+  { getConnectionInfo = getConnectInfo'
+  , withConnection = PostgreSQL.withConnect
+  , Dialect.withTransaction = PostgreSQL.withTransaction
   , createMigrationTrackingTable = createMigrationTrackingTable'
   , createTrackedMigration = createTrackedMigration'
   , applyMigration = applyMigration'
+  , markApplied = markApplied'
+  , getOrderedUnappliedMigrations = getOrderedUnappliedMigrations'
+  , getTrackedMigrationNames = getTrackedMigrationNames'
   }
 
 getConnectInfo' :: IO ConnectInfo
@@ -57,69 +63,38 @@ getConnectInfo' = do
     (read port :: Word16)
     user
     password
-    name  
+    name
 
-createMigrationTrackingTable' :: ConnectInfo -> IO (Either SqlError ())
-createMigrationTrackingTable' connInfo =
-  withConnect
-    connInfo
-    (\ conn ->
-       try $ withTransaction conn $ void $
-       execute_
-       conn
-       [sql|
-           CREATE TABLE IF NOT EXISTS parmenides_migration (
-           id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-           filename VARCHAR(50) NOT NULL,
-           filepath VARCHAR(50) NOT NULL,
-           version BIGINT NOT NULL,
-           applied BOOLEAN NOT NULL DEFAULT FALSE
-           )
-           |]
-    )
+createMigrationTrackingTable' :: Connection -> IO (Either SqlError ())
+createMigrationTrackingTable' conn =
+  try $ PostgreSQL.withTransaction conn $ void $
+  execute_
+  conn
+  [sql|
+      CREATE TABLE IF NOT EXISTS parmenides_migration (
+      id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      filename VARCHAR(50) NOT NULL,
+      filepath VARCHAR(50) NOT NULL,
+      version BIGINT NOT NULL,
+      applied BOOLEAN NOT NULL DEFAULT FALSE
+      )
+      |]
     
 createTrackedMigration'
-  :: ConnectInfo
+  :: Connection
   -> Filename
   -> Filepath
   -> Version
   -> IO (Either SqlError ())
-createTrackedMigration' connInfo filename filepath version =
-  withConnect
-  connInfo
-  (\ conn ->
-     withTransaction conn $ try $ void $
-        execute
-        conn
-        [sql|
-            INSERT INTO parmenides_migration (filename, filepath, version, applied)
-            VALUES (?, ?, ?, ?)
-            |]
-          (filename, filepath, version, False)
-  )
-
-getTrackedMigrationNames :: IO [String]
-getTrackedMigrationNames = do
-  let statement :: Connection -> IO [String]
-      statement =
-        (\ conn' -> do
-            values <- query_ conn' [sql| SELECT filename FROM parmenides_migration |]
-            pure $ fmap (\ (Only filename) -> filename) values
-        )
-  connInfo <- getConnectInfo'
-  withConnect connInfo (\ conn -> withTransaction conn (statement conn))
-
-getOrderedUnappliedMigrations :: IO [Migration]
-getOrderedUnappliedMigrations = do
-  connInfo <- getConnectInfo'
-  withConnect connInfo $ \ conn -> do
-    migrationTuples <- query_ conn [sql|
-                         SELECT *
-                         FROM parmenides_migration
-                         WHERE applied = FALSE
-                         ORDER BY version ASC
-                         |]
-    pure $ fmap (\ (i, fn, fp, v, a) -> Migration i fn fp v a) migrationTuples
+createTrackedMigration' conn filename filepath version =
+  PostgreSQL.withTransaction conn $ try $ void $
+  execute
+  conn
+  [sql|
+      INSERT INTO parmenides_migration (filename, filepath, version, applied)
+      VALUES (?, ?, ?, ?)
+      |]
+    (filename, filepath, version, False)
 
 {- TODO use this when implementing migrate command
   connInfo <- getConnectInfo
@@ -127,17 +102,15 @@ getOrderedUnappliedMigrations = do
     runExceptT $ traverse_ (ExceptT . applyMigration conn) migrations
 -}
 
-applyMigration' :: ConnectInfo -> Migration -> IO (Either SqlError ())
-applyMigration' connInfo (Migration { identifier, filename, filepath }) = do
-  withConnect connInfo $ \ conn ->
-    try $ withTransaction conn $ do
-      queryStr <- readFile filepath
-      void $ execute_ conn $ fromString queryStr
-      void $ markApplied conn identifier
-      putStrLn $ "Migration " ++ filename ++ " has been successfully applied"
+applyMigration' :: Connection -> Migration -> IO (Either SqlError ())
+applyMigration' conn (Migration { filename, filepath }) = do
+  try $ PostgreSQL.withTransaction conn $ do
+    queryStr <- readFile filepath
+    void $ execute_ conn $ fromString queryStr
+    putStrLn $ "Migration " ++ filename ++ " has been successfully applied"
 
-markApplied :: Connection -> Int -> IO (Either SqlError ())
-markApplied connInfo identifier = try $ void $
+markApplied' :: Connection -> Int -> IO (Either SqlError ())
+markApplied' connInfo identifier = try $ void $
   execute
   connInfo
   [sql|
@@ -147,3 +120,19 @@ markApplied connInfo identifier = try $ void $
       |]
     (Only identifier)
 
+getOrderedUnappliedMigrations' :: Connection -> IO [Migration]
+getOrderedUnappliedMigrations' conn = do
+  migrationTuples <- query_ conn
+    [sql|
+        SELECT *
+        FROM parmenides_migration
+        WHERE applied = FALSE
+        ORDER BY version ASC
+        |]
+  pure $ fmap (\ (i, fn, fp, v, a) -> Migration i fn fp v a) migrationTuples
+  
+getTrackedMigrationNames' :: Connection -> IO [String]
+getTrackedMigrationNames' conn = do
+  values <- query_ conn [sql| SELECT filename FROM parmenides_migration |]
+  pure $ fmap (\ (Only filename) -> filename) values
+  

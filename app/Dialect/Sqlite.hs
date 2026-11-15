@@ -8,12 +8,13 @@ import Data.Functor (void)
 
 import Database.SQLite.Simple.QQ (sql)
 import System.Environment (getEnv)
+import qualified Database.SQLite.Simple as SQLite
 import Database.SQLite.Simple
   ( Only (..)
-  , withConnection
-  , withTransaction
+  , Connection
   , execute
   , execute_
+  , query_
   , FormatError
   )
 import Dialect (Dialect (..))
@@ -24,57 +25,58 @@ import Dialect.Types
   , Version
   )  
 
-dialect :: Dialect String FormatError
+dialect :: Dialect String Connection FormatError
 dialect = Dialect
-  { getConnection = getConnection'
+  { getConnectionInfo = getConnectionInfo'
+  , Dialect.withConnection = SQLite.withConnection
+  , Dialect.withTransaction = SQLite.withTransaction
   , createMigrationTrackingTable = createMigrationTrackingTable'
   , createTrackedMigration = createTrackedMigration'
   , applyMigration = applyMigration'
+  , markApplied = markApplied'
+  , getOrderedUnappliedMigrations = getOrderedUnappliedMigrations'
+  , getTrackedMigrationNames = getTrackedMigrationNames'
   }
 
+getConnectionInfo' :: IO String
+getConnectionInfo' = getEnv "PARMENIDES_DB_FILE"
 
-getConnection' :: IO String
-getConnection' = getEnv "PARMENIDES_DB_FILE"
-
-createMigrationTrackingTable' :: String -> IO (Either FormatError ())
-createMigrationTrackingTable' connStr =
-  withConnection connStr $ \ conn ->
-    withTransaction conn $ try $ void $
-    execute_ conn
-    [sql|
-        CREATE TABLE IF NOT EXISTS parmenides_migration (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        filename VARCHAR(50) NOT NULL,
-        filepath VARCHAR(50) NOT NULL,
-        version BIGINT NOT NULL,
-        applied BOOLEAN NOT NULL DEFAULT 0
-        )
-        |]
+createMigrationTrackingTable' :: Connection -> IO (Either FormatError ())
+createMigrationTrackingTable' conn =
+  try $ void $
+  execute_ conn
+  [sql|
+      CREATE TABLE IF NOT EXISTS parmenides_migration (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename VARCHAR(50) NOT NULL,
+      filepath VARCHAR(50) NOT NULL,
+      version BIGINT NOT NULL,
+      applied BOOLEAN NOT NULL DEFAULT 0
+      )
+      |]
     
 createTrackedMigration'
-  :: String
+  :: Connection
   -> Filename
   -> Filepath
   -> Version
   -> IO (Either FormatError ())
-createTrackedMigration' connStr filename filepath version =
-  withConnection connStr $ \ conn ->
-    withTransaction conn $ try $ void $ execute conn
-    [sql|
-        INSERT INTO parmenides_migration (filename, filepath, version, applied)
-        VALUES (?, ?, ?, ?)
-        |]
-      (filename, filepath, version, False)
+createTrackedMigration' conn filename filepath version =
+  try $ void $ execute conn
+  [sql|
+      INSERT INTO parmenides_migration (filename, filepath, version, applied)
+      VALUES (?, ?, ?, ?)
+      |]
+    (filename, filepath, version, False)
 
-applyMigration' :: String -> Migration -> IO (Either FormatError ())
-applyMigration' connStr migration = do
-  withConnection connStr $ \ conn -> try $ do
-    queryStr <- readFile $ filepath migration
-    execute_ conn $ fromString queryStr
+applyMigration' :: Connection -> Migration -> IO (Either FormatError ())
+applyMigration' conn migration = do
+  queryStr <- readFile $ filepath migration
+  try $ execute_ conn $ fromString queryStr
 
-markApplied' :: String -> Int -> IO (Either FormatError ())
-markApplied' connStr identifier = do
-  withConnection connStr $ \ conn -> try $ void $
+markApplied' :: Connection -> Int -> IO (Either FormatError ())
+markApplied' conn identifier = do
+  try $ void $
     execute
     conn
     [sql|
@@ -83,4 +85,20 @@ markApplied' connStr identifier = do
         WHERE id = ?
         |]
       (Only identifier)
+
+getOrderedUnappliedMigrations' :: Connection -> IO [Migration]    
+getOrderedUnappliedMigrations' conn = do
+  migrationTuples <- query_ conn
+    [sql|
+        SELECT *
+        FROM parmenides_migration
+        WHERE applied = 0
+        ORDER BY version ASC
+        |]
+  pure $ fmap (\ (i, fn, fp, v, a) -> Migration i fn fp v a) migrationTuples
+
+getTrackedMigrationNames' :: Connection -> IO [String]
+getTrackedMigrationNames' conn = do
+  values <- query_ conn [sql| SELECT filename FROM parmenides_migration |]
+  pure $ fmap (\ (Only filename) -> filename) values
 

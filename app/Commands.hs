@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedRecordDot  #-} 
 module Commands where
 
+import Control.Exception (Exception)
 import Control.Monad (void)
+import Data.Foldable (traverse_)  
 import Control.Exception (displayException)
 import System.Environment (getEnv)
 import Data.List
@@ -62,8 +64,8 @@ commands = Commands
   { helpCmd = helpCommand
   , setupCmd = setupCommand
   , setupTrackingCmd = setupTrackingCommand
-  , mkMigrationCmd = undefined--mkMigrationCommand
-  , migrateCmd = undefined--migrateCommand
+  , mkMigrationCmd = mkMigrationCommand
+  , migrateCmd = migrateCommand
   }
 
 helpCommand :: Command
@@ -162,18 +164,16 @@ setupTrackingCommand =
 setupTrackingInternal :: IO ()
 setupTrackingInternal = do
   someDialect <- getDialect
-  void $ Dialect.withSomeDialect
-       someDialect
-       (\ dialect -> do
-           conn <- dialect.getConnection
-           result <- dialect.createMigrationTrackingTable conn
-           case result of
-             Left err ->
-               reportError "Setting Tracking table failed"
-               >> putStrLn (displayException err)
-             Right _ ->
-               putStrLn "Migration tracking table has been created and committed to the database"
-       )
+  Dialect.withSomeDialect someDialect $ \ dialect -> do
+    connInfo <- dialect.getConnectionInfo
+    dialect.withConnection connInfo $ \ conn -> do
+      result <- dialect.createMigrationTrackingTable conn
+      case result of
+        Left err ->
+          reportError "Setting Tracking table failed"
+          >> putStrLn (displayException err)
+        Right _ ->
+          putStrLn "Migration tracking table has been created and committed to the database"
 
 mkMigrationCommand :: Command
 mkMigrationCommand =
@@ -190,34 +190,33 @@ mkMigrationCommand =
 mkMigrationInternal :: NonEmpty String -> IO ()
 mkMigrationInternal title = do
   someDialect <- getDialect
-  void $ Dialect.withSomeDialect someDialect $ \ dialect -> do
-    conn <- dialect.getConnection
-    timestamp <- getTimestamp
+  Dialect.withSomeDialect someDialect $ \ dialect -> do
+    connInfo <- dialect.getConnectionInfo
+    dialect.withConnection connInfo $ \ conn -> do
+      timestamp <- getTimestamp
 
-    let timestampStr = show timestamp
-    let filename = NE.head title ++ "_" ++ timestampStr ++ ".sql"
-    let filepath = "migrations/" ++ filename
+      let timestampStr = show timestamp
+      let filename = NE.head title ++ "_" ++ timestampStr ++ ".sql"
+      let filepath = "migrations/" ++ filename
   
-    writeFile filepath ""
+      writeFile filepath ""
   
-    result <- dialect.createTrackedMigration conn filename filepath timestampStr
+      result <- dialect.createTrackedMigration conn filename filepath timestampStr
   
-    case result of
-      Left err ->
-        removeFile filepath
-        >> reportError "Failed insertion of tracked migration in database"
-        >> putStrLn (displayException err)
-        >> pure ()
+      case result of
+        Left err ->
+          removeFile filepath
+          >> reportError "Failed insertion of tracked migration in database"
+          >> putStrLn (displayException err)
+          >> pure ()
       
-      Right _ -> 
-        pure ()
+        Right _ -> 
+          pure ()
 
-{-
-      
 migrateCommand :: Command
 migrateCommand = Command
   { name = "migrate"
-  , run = undefined
+  , run = (\ _ -> migrateCommandInternal)
   , helpDoc =
       mkHelpDoc
       "migrate"
@@ -227,35 +226,33 @@ migrateCommand = Command
 
 migrateCommandInternal :: IO ()
 migrateCommandInternal = do
-  migrations <- getOrderedUnappliedMigrations
-  result <- applyMigrations migrations
-  either
-    (\ (e :: SqlError) -> do
-        print e
-        reportError "A migration failed to apply"
-    )
-    (\ _ -> putStrLn "Migrations have been applied successfully")
-    result
+  someDialect <- getDialect
+  
+  void $ Dialect.withSomeDialect someDialect $ \ dialect -> do
+    connInfo <- dialect.getConnectionInfo    
+    dialect.withConnection connInfo $ \ conn -> do
+      migrations <- dialect.getOrderedUnappliedMigrations conn
+      traverse_ (applyMigration conn dialect) migrations
   where
-    applyMigrations :: [Migration] -> IO (Either FormatError ())
-    applyMigrations migrations = do
-      connPath <- getConnection
-      withConnection connPath $ \ conn ->
-        -- withTransaction
-        runExceptT $ traverse_ (ExceptT . applyMigration conn) migrations
- 
-getUntrackedMigrationInDirectory :: IO [String]
-getUntrackedMigrationInDirectory = do
-  migrationsInDir <- getMigrationNames
-  migrationsInDb <- getTrackedMigrationNames
-  pure $ migrationsInDir \\ migrationsInDb
+    applyMigration
+      :: Exception e
+      => c
+      -> Dialect i c e
+      -> Migration
+      -> IO ()
+    applyMigration conn dialect migration =
+      dialect.withTransaction conn $ do
+        result <- dialect.applyMigration conn migration
+        either
+          (\ e -> do
+              putStrLn $ displayException e
+              reportError "A migration failed to apply"
+          )
+          (\ _ -> putStrLn "Migrations have been applied successfully")
+          result
+        pure ()
 
-getMigrationNames :: IO [String]
-getMigrationNames = do
-  dirContent <- getDirectoryContents "migrations"
-  pure $ filter (\ migration -> migration /= "." && migration /= "..") dirContent  
-
--}
+-- Helper functions
 
 getCmd :: String -> Maybe Command
 getCmd name' = find (\ cmd -> name cmd == name') $ Command.toList commands
