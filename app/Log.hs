@@ -23,6 +23,8 @@ import Text.PrettyPrint
 reportError :: String -> IO ()
 reportError message
   =  setSGR [SetColor Foreground Dull Red]
-  >> die ("Error: " ++ (render $ text message))
+  >> putStr "Error: "
   >> setSGR [Reset]
+  >> putStr (render $ text (message ++ "\n"))
+  >> die ""
 
