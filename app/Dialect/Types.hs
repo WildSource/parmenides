@@ -9,7 +9,12 @@ This module defines some type aliases and the definition of a Migration.
 Migrations are data representation of the table instances in a database.
 When parmenides fetches data from the database the rows get converted into a Migration.
 -}
-module Dialect.Types where
+module Dialect.Types
+  ( Migration (..)
+  , Filename
+  , Filepath
+  , Version
+  ) where
 
 type Filename = String
 type Filepath = String

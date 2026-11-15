@@ -9,7 +9,11 @@ This module contains various boilerplaty data fetching and/or formatting
 in the form of functions to call.
 -}
 {-# LANGUAGE NamedFieldPuns #-}
-module Utility where
+module Utility
+  ( Timestamp (year, month, day, hour, minute, second)
+  , getTimestamp
+  , headTail
+  ) where
 
 -- Prelude imports
 import Data.Fixed (Pico)

@@ -9,7 +9,9 @@ This module contains the low level implementation of database interactions for t
 -}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-module Dialect.Sqlite where
+module Dialect.Sqlite
+  ( dialect
+  ) where
 
 -- Prelude imports
 import Data.String (fromString)
