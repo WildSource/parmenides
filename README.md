@@ -19,57 +19,81 @@ Migrations are forward only, this means that if you mess up, you make another mi
 - An ordered list of migrations
 - A tracking table that records which migration ran and those who did not run yet
 - A runner that finds unapplied migration and runs them in order
+  - Every migrations are ran through a transaction that rollback if there's an error.
+  - Parmenides has idempotency, meaning that if you rerun a migration it will not change the db.
 - A way to invoke it (cli binary executable)
-
-# Status
-It's ready for 1.0 but not stable yet.  
-Meaning that the api is definitive for 1.0 but reliability and program behavior are not yet stable.  
-
-> Although the happy path has been ran (it works) but not thoroughly tested yet.
-> That's why reporting issues will be important.
-
-## Stability
-- Every migrations are ran through a transaction that rollback if there's an error.
-- Parmenides has idempotency, meaning that if you rerun a migration it will not change the db or anything.
-- No migration checksum yet.
 
 # Install
  Parmenides is a single executable binary.  
- I use Linux so if you are on Mac or Windows you compile it yourself.
+ I use Linux (Desktop) and OpenBSD (Laptop), so if you are on Mac or Windows you compile it yourself.  
  
 ## From source
  Clone the project and build it by calling this command `cabal build`.  
  Or just run it with `cabal run` with also runs the build command implicitly.  
  
 ## Releases
- There's a pre-compiled binary in the release section of the github repository for Linux users.  
- You can also compile it even if you are on Linux.  
+ There's a pre-compiled binary in the release section of the repository.  
+ The binary will either be for Linux or OpenBSD depending on which devices I'm on when releasing.  
+ (Look I'm doing my best ok)  
 
 # Usage
 The help command displays a list of commands in order of execution in a workflow.
-
-> Except for the findMigration command which is called implicitly by migrate but is exposed for the user to use if creating migrations by hand.
-> "By hand" I mean not using the mkMigration command (which you should).
 
 ```
 Usage: parmenides CMD [ARG ...]
 Commands:
   help                This is the help command
-  setup               Creates a migrations/ directory and an environment file for parmenides
+  setup DATABASE      Creates a migrations/ dir and a db specific env file
   setupTracking       Create a table in the database to track migrations
   mkMigration TITLE   Creates a migration file to migrations/ and tracks it
-  findMigrations      Checks for new migrations that are not tracked and add entries for them
-  migrate             Runs findMigrations first cmd and then runs unapplied migrations
+  migrate             Runs unapplied migrations tracked by Parmenides
 ```
 
 ## Setup 
 1. Put the executable at the root directory of your project  
-2. Run the `parmenides setup` command.  
+
+2. Run the `parmenides setup DATABASE` command.  
+   The `DATABASE` argument takes either "sqlite", "postgresql" or "mysql".  
+   Although, avoid "mysql" since it's not supported (my bad on that part).  
    It will create a migrations directory where it will keep and manage sql script files.  
    It will also create a environment file (parmenides.env) where you have to define some values.  
-   If a gitignore file is present, both of these files are automatically added to your gitignore.  
    The variables will already be defined, so all is left to do is to give them values.  
-   **Very important**, the parser for env files needs a newline at the end of the file or it will give you an error. (It's already handled by the mkMigration command)
+   If a gitignore file is present, `parmenides.env` is automatically added to your gitignore.  
+   
+   > **Very important**
+   > The parser for env files needs a newline at the end of the file or it will give you an error.  
+   >
+   > The flavor environment variable is what parmenides uses to know which database dialect to use. 
+   > It enables you to not need to provide it as an argument in every command everytime you do something.  
+   > 
+   > All of these quirks are already handled by the `setup DATABASE` command.  
+
+### SQLite 
+When using SQLite, you just have to provide the path towards your database file.
+
+```
+PARMENIDES_FLAVOR=sqlite
+PARMENIDES_DB_FILE=
+```
+
+### PostgreSQL
+Using PostgreSQL is a little bit more work. Remember that Parmenides is just a migration tracking tool.  
+You still need to create a Database and a Role with the appropriate permissions.  
+Then provide the host which refers to which machine to connect to so either an ip address or `localhost`.  
+Then provide the port which by default is `5432`.  
+Then provide the name of the Role (User) that will connect to the database.  
+Then provide the name of the Database itself.  
+Then provide the password to authenticate yourself.  
+
+```
+PARMENIDES_FLAVOR=postgresql
+PARMENIDES_HOST=
+PARMENIDES_PORT=
+PARMENIDES_USER=
+PARMENIDES_NAME=
+PARMENIDES_PASSWORD=
+```
+   
 3. With the values to the env file provided, run the `parmenides setupTracking` command to create a tracking table in your current database.  
    This table is your single source of truth for managing which migrations have been ran. (it does not store the sql script that's what the filesystem is for)  
    
@@ -79,22 +103,27 @@ Commands:
    It will create a migration file in *migrations/* and add a database entry so that parmenides can track it.  
    The migration file is an ordinary sql file so all of the ordinary database and sql rule applies.  
    A migration's filename is in the form `TITLE_YYYYMMDDHHmmss.sql`.  
-   Parmenides will not enforce the filename's format, so if you mess it up you will have to fix it (for now).  
-   This means that if you have **any** type of file with **any** name Parmenides **will** track it as a migration file and throw an error when trying to run it.  
-   In that case, you go into the database and delete the faulty one (they are ordered anyways).  
-
->  Replace *TITLE* by any name. They have to be connected tho using `"CREATE FRUIT TABLE"` will not work and throw an error.  
->  Rather use `CREATE_FRUIT_TABLE` since the underscore connect these words to form only one and do not use double quotes.  
->  Capitalized letters are used in the examples but any alphanumeric is accepted.
+   Replace *TITLE* by any name. They have to be connected tho using `"CREATE FRUIT TABLE"` will not work and throw an error.  
+   Rather use `CREATE_FRUIT_TABLE` since the underscore connect these words to form only one and do not use double quotes.  
+   Capitalized letters are used in the examples but any alphanumeric is accepted.  
+   
+   > Parmenides only tracks migrations created through the `mkMigration TITLE` command.
+   > Any file in the *migration/* directory not put there by the command is ignored completely.
    
 5. Run the `parmenides migrate` command.  
-   Which implicitly executes the findMigrations commands to find any migrations that are missing or not tracked and adds them to the tracking table (Usually migrations that are added manually and not through the mkMigration command)  
-   Then gets all the migrations that are not applied and applies them sequentially in an ordered manner. Each migrations are ran through a transaction so if any returns an error it will stop and report the error.
+   Parmenides gets migrations that have not been applied yet and applies them sequentially in an ordered manner.  
+   Each migrations are ran through a transaction so if any returns an error it will stop and report the error.  
    
+# Status
+Parmenides is on 1.0.0.0 and stable.  
+It does what it's supposed to do and the API is stable.  
+Error message are kind of lack luster but they will get better as time goes on and it is used more.  
+Hopefully, specific errors get reported to issues.  
+
 # Roadmap
+A list of future features that will get on Parmenides.  
+(Implemented features get removed from the list instead of checked)
 
-Error message are kind of lack luster but they will be implemented in the future when specific errors will arise from issue reporting (Hopefully).
-
-- [ ] Sqlite support
 - [ ] Migration checksum
+- [ ] MySQL support
 
