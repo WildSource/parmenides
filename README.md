@@ -14,7 +14,7 @@ The goal is to be simple (and easy but it's not the priority) and out of your wa
 With the design being minimal and simple some safety "features" are not present.  
 Depending on the safety "feature" (like checksum) some, will be implemented later but for most, they are the developer's responsability to not do stupid things.  
 Migrations are forward only, this means that if you mess up, you make another migrations to fix your old one.  
-**Supports only Postgresql for now**  
+**Supports Postgresql and Sqlite (MySQL some day)**  
 
 - An ordered list of migrations
 - A tracking table that records which migration ran and those who did not run yet
