@@ -17,14 +17,17 @@ module Commands
   ) where
 
 -- Prelude imports
+
 import Control.Exception (Exception)
-import Control.Monad (void)
 import Data.Foldable (traverse_)  
 import System.Environment (getEnv)
 import Data.List (find)
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NE
-import Control.Monad (when)
+import Control.Monad
+  ( when
+  , unless
+  )
 import System.Directory
   ( createDirectoryIfMissing
   , doesDirectoryExist
@@ -33,6 +36,10 @@ import System.Directory
   )
 
 -- library imports
+import Control.Monad.Except
+  ( ExceptT (..)
+  , runExceptT
+  )
 import Text.PrettyPrint
   (($$)
   , render
@@ -52,7 +59,7 @@ import Dialect
   ( Dialect (..)
   , SomeDialect (..)
   )
-import Dialect.Types (Migration)  
+import Dialect.Types (Migration (identifier))  
 import Dialect.Flavor
   ( Flavor (..)
   , mkFlavor
@@ -232,11 +239,13 @@ migrateCommandInternal :: IO ()
 migrateCommandInternal = do
   someDialect <- getDialect
   
-  void $ Dialect.withSomeDialect someDialect $ \ dialect -> do
+  Dialect.withSomeDialect someDialect $ \ dialect -> do
     connInfo <- dialect.getConnectionInfo    
     dialect.withConnection connInfo $ \ conn -> do
       migrations <- dialect.getOrderedUnappliedMigrations conn
-      traverse_ (applyMigration conn dialect) migrations
+      let isEmpty = null migrations
+      unless isEmpty $ traverse_ (applyMigration conn dialect) migrations
+      when isEmpty $ putStrLn "Every migrations have ALREADY been applied"
   where
     applyMigration
       :: Exception e
@@ -246,7 +255,9 @@ migrateCommandInternal = do
       -> IO ()
     applyMigration conn dialect migration =
       dialect.withTransaction conn $ do
-        result <- dialect.applyMigration conn migration
+        result <- runExceptT $ do
+          ExceptT $ dialect.applyMigration conn migration
+          ExceptT $ dialect.markApplied conn (identifier migration)
         either
           (reportErrorWithException "A migration failed to apply")
           (\ _ -> putStrLn "Migrations have been applied successfully")
