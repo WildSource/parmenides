@@ -8,7 +8,11 @@ Maintainer: ilovetrap123@hotmail.com
 This module defines what a database dialect is and what it can do.
 -}
 {-# LANGUAGE ExistentialQuantification #-}
-module Dialect where
+module Dialect
+  ( Dialect (..)
+  , SomeDialect (..)
+  , withSomeDialect 
+  ) where
 
 -- Prelude imports
 import Control.Exception (Exception)
