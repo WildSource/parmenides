@@ -100,11 +100,10 @@ createTrackedMigration' conn filename filepath version =
     (filename, filepath, version, False)
 
 applyMigration' :: Connection -> Migration -> IO (Either SqlError ())
-applyMigration' conn (Migration { filename, filepath }) = do
-  try $ PostgreSQL.withTransaction conn $ do
-    queryStr <- readFile filepath
-    void $ execute_ conn $ fromString queryStr
-    putStrLn $ "Migration " ++ filename ++ " has been successfully applied"
+applyMigration' conn (Migration { filename, filepath }) = try $ do 
+  queryStr <- readFile filepath
+  void $ execute_ conn $ fromString queryStr
+  putStrLn $ "Migration " ++ filename ++ " has been successfully applied"
 
 markApplied' :: Connection -> Int -> IO (Either SqlError ())
 markApplied' connInfo identifier = try $ void $
