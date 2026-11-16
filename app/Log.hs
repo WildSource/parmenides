@@ -1,40 +1,45 @@
-module Log where
+{-|
+Module: Log
+Description: Logging module
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
 
+This module contains functions to log various events.
+-}
+module Log
+  ( reportError
+  , reportErrorWithException
+  ) where 
+
+-- Prelude imports
+import System.Exit (die)
+import Control.Exception
+  ( Exception
+  , displayException
+  )
+
+-- Library imports
 import System.Console.ANSI
-import System.Console.ANSI.Types (Color (..))
+import Text.PrettyPrint
+  ( render
+  , text
+  )
 
-applyColor :: Color -> String -> IO ()
-applyColor color str 
-  =  setSGR [SetColor Foreground Dull color]
-  >> putStr str
-  >> setSGR [Reset]
-  
-logInfo :: String -> IO ()
-logInfo msg
-  =  setSGR [SetColor Foreground Dull Green]
-  >> putStrLn msg
-  >> setSGR [Reset]
-
-logWarning :: String -> IO ()
-logWarning msg
-  =  setSGR [SetColor Foreground Dull Yellow]
-  >> putStrLn ("  " ++ msg)
-  >> setSGR [Reset]
-
-logError :: String -> IO ()
-logError msg
+reportError :: String -> IO ()
+reportError message
   =  setSGR [SetColor Foreground Dull Red]
-  >> putStrLn ("    " ++ msg)
+  >> putStr "Error: "
   >> setSGR [Reset]
+  >> putStr (render $ text (message ++ "\n"))
+  >> die ""
 
-logCreate :: FilePath -> IO ()
-logCreate filepath
-  =  putStr "    "
-  >> applyColor Green "create"
-  >> putStrLn (" " ++ filepath)
-
-logRun :: FilePath -> IO ()
-logRun filepath
-  =  applyColor Green "    ran "
-  >> putStrLn ("migration " ++ filepath)
-
+reportErrorWithException :: Exception e => String -> e -> IO ()  
+reportErrorWithException message exception = do
+  setSGR [SetColor Foreground Dull Red]
+  putStr "Error: "
+  setSGR [Reset]
+  putStr (render $ text (message ++ "\n"))
+  putStrLn (displayException exception)
+  die ""
+  

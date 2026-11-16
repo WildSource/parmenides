@@ -20,7 +20,7 @@ name:               parmenides
 -- PVP summary:     +-+------- breaking API changes
 --                  | | +----- non-breaking API additions
 --                  | | | +--- code changes with no API change
-version:            0.1.0.1
+version:            1.0.0.0
 
 -- A short (one-line) description of the package.
 synopsis:           A database migration system written in Haskell
@@ -53,6 +53,14 @@ extra-doc-files:    CHANGELOG.md
 
 common warnings
     ghc-options: -Wall
+                 -Wcompat
+                 -Widentities
+                 -Wincomplete-record-updates
+                 -Wincomplete-uni-patterns
+                 -Wmissing-export-lists
+                 -Wpartial-fields
+                 -Wredundant-constraints
+                 -Wunused-packages
 
 executable parmenides
     -- Import common warning flags.
@@ -66,7 +74,9 @@ executable parmenides
                       Command,
                       Commands,
                       Utility,
-                      Dialect.Internal,
+                      Dialect,
+                      Dialect.Flavor,
+                      Dialect.Types,
                       Dialect.Sqlite,
                       Dialect.Postgresql                      
 
@@ -75,12 +85,13 @@ executable parmenides
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.20.1.0,
+                      mtl ^>=2.3.2,
                       pretty,
                       time,
                       directory,
-                      filepath,
-                      transformers,
-                      text,
+--                      filepath,
+--                      transformers,
+--                      text,
                       ansi-terminal ^>=1.1.5,
                       load-env ^>=0.2.1.0,
                       sqlite-simple ^>=0.4.19.0,
