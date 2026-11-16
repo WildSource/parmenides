@@ -20,7 +20,6 @@ module Commands
 import Control.Exception (Exception)
 import Control.Monad (void)
 import Data.Foldable (traverse_)  
-import Control.Exception (displayException)
 import System.Environment (getEnv)
 import Data.List (find)
 import Data.List.NonEmpty (NonEmpty)
@@ -44,7 +43,10 @@ import Text.PrettyPrint
 
 -- User code imports
 import Utility (getTimestamp)
-import Log (reportError)
+import Log
+  ( reportError
+  , reportErrorWithException
+  )
 import qualified Dialect as Dialect
 import Dialect
   ( Dialect (..)
@@ -108,7 +110,7 @@ setupCommand =
       fileExist <- doesFileExist "parmenides.env"
       case mkFlavor $ NE.head flavorStr of
         Nothing ->
-          reportError $
+          reportError
           "Database flavor in env file is wrong, try \"sqlite\", \"postgresql\" or \"mysql\""
         Just flavor -> 
           when (not fileExist) $ createParmenidesEnvironmentFile flavor
@@ -175,8 +177,7 @@ setupTrackingInternal = do
       result <- dialect.createMigrationTrackingTable conn
       case result of
         Left err ->
-          reportError "Setting Tracking table failed"
-          >> putStrLn (displayException err)
+          reportErrorWithException "Setting Tracking table failed" err
         Right _ ->
           putStrLn "Migration tracking table has been created and committed to the database"
 
@@ -211,9 +212,7 @@ mkMigrationInternal title = do
       case result of
         Left err ->
           removeFile filepath
-          >> reportError "Failed insertion of tracked migration in database"
-          >> putStrLn (displayException err)
-          >> pure ()
+          >> reportErrorWithException "Failed insertion of tracked migration in database" err
       
         Right _ -> 
           pure ()
@@ -249,10 +248,7 @@ migrateCommandInternal = do
       dialect.withTransaction conn $ do
         result <- dialect.applyMigration conn migration
         either
-          (\ e -> do
-              putStrLn $ displayException e
-              reportError "A migration failed to apply"
-          )
+          (reportErrorWithException "A migration failed to apply")
           (\ _ -> putStrLn "Migrations have been applied successfully")
           result
         pure ()

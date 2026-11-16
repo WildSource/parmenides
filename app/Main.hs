@@ -12,6 +12,9 @@ module Main (main) where
 -- Prelude imports
 import System.Environment (getArgs)
 
+-- Library imports
+import LoadEnv (loadEnvFrom)
+
 -- User code imports
 import Log (reportError)
 import Commands (getCmd)
@@ -22,6 +25,7 @@ import Command
 
 main :: IO ()
 main = do
+  loadEnvFrom "parmenides.env"
   args <- getArgs
   let parsedCmd = parseCmd args
   case parsedCmd of

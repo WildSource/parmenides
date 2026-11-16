@@ -74,7 +74,8 @@ parseArgs :: [String] -> Either (IO ()) (NonEmpty String)
 parseArgs args =
   case nonEmpty args of
     Nothing ->
-      Left $ reportError "No arguments has been provided for a command that needs them"
+      Left $ reportError
+      "No arguments has been provided for a command that needs them"
     Just nonEmptyArgs ->
       Right nonEmptyArgs
 
@@ -83,7 +84,8 @@ validateArgs args options = do
   let conditions = fmap (flip elem options) args
   case and conditions of
     False ->
-      Left $ reportError $ "An argument provided is not a valid option\n  Try " ++ show options
+      Left $ reportError
+      ("An argument provided is not a valid option\n  Try " ++ show options)
     True ->
       Right args
 

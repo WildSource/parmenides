@@ -7,10 +7,17 @@ Maintainer: ilovetrap123@hotmail.com
 
 This module contains functions to log various events.
 -}
-module Log (reportError) where 
+module Log
+  ( reportError
+  , reportErrorWithException
+  ) where 
 
 -- Prelude imports
 import System.Exit (die)
+import Control.Exception
+  ( Exception
+  , displayException
+  )
 
 -- Library imports
 import System.Console.ANSI
@@ -19,7 +26,6 @@ import Text.PrettyPrint
   , text
   )
 
--- TODO fix bug where red color applies after the log
 reportError :: String -> IO ()
 reportError message
   =  setSGR [SetColor Foreground Dull Red]
@@ -28,3 +34,12 @@ reportError message
   >> putStr (render $ text (message ++ "\n"))
   >> die ""
 
+reportErrorWithException :: Exception e => String -> e -> IO ()  
+reportErrorWithException message exception = do
+  setSGR [SetColor Foreground Dull Red]
+  putStr "Error: "
+  setSGR [Reset]
+  putStr (render $ text (message ++ "\n"))
+  putStrLn (displayException exception)
+  die ""
+  
