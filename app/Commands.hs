@@ -17,7 +17,6 @@ module Commands
   ) where
 
 -- Prelude imports
-
 import Control.Exception (Exception)
 import Data.Foldable (traverse_)  
 import System.Environment (getEnv)
