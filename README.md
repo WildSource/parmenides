@@ -120,10 +120,3 @@ It does what it's supposed to do and the API is stable.
 Error message are kind of lack luster but they will get better as time goes on and it is used more.  
 Hopefully, specific errors get reported to issues.  
 
-# Roadmap
-A list of future features that will get on Parmenides.  
-(Implemented features get removed from the list instead of checked)
-
-- [ ] Migration checksum
-- [ ] MySQL support
-
