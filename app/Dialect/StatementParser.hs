@@ -1,6 +1,14 @@
+{-|
+Module: Dialect.StatementParser
+Description: Functions to parse individual statements out of a query
+Copyright: (c) WildSource, 2023
+License: MIT
+Maintainer: ilovetrap123@hotmail.com
+
+This module has functions to take the input from an sql file and return individual statements.
+-}
 module Dialect.StatementParser
   ( parse
-  , strip
   ) where
 
 import Data.String.Utils (strip)

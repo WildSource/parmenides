@@ -14,6 +14,7 @@ module Dialect.Sqlite
   ) where
 
 -- Prelude imports
+import Data.Foldable (traverse_)
 import Data.String (fromString)
 import Control.Exception (try)
 import Data.Functor (void)
@@ -30,13 +31,16 @@ import Database.SQLite.Simple
   , query_
   , FormatError
   )
+
+-- User code imports  
 import Dialect (Dialect (..))
 import Dialect.Types
   ( Migration (..)
   , Filename
   , Filepath
   , Version
-  )  
+  )
+import Dialect.StatementParser (parse)
 
 dialect :: Dialect String Connection FormatError
 dialect = Dialect
@@ -82,10 +86,12 @@ createTrackedMigration' conn filename filepath version =
       |]
     (filename, filepath, version, False)
 
+-- Handles both single statements and multiple statements of a query string
 applyMigration' :: Connection -> Migration -> IO (Either FormatError ())
 applyMigration' conn migration = do
   queryStr <- readFile $ filepath migration
-  try $ execute_ conn $ fromString queryStr
+  let migrations = parse queryStr  
+  try $ traverse_ (execute_ conn) $ fmap fromString migrations
 
 markApplied' :: Connection -> Int -> IO (Either FormatError ())
 markApplied' conn identifier = do
