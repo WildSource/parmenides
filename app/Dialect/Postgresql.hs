@@ -12,11 +12,12 @@ This module contains the low level implementation of database interactions that 
 module Dialect.Postgresql (dialect) where
 
 -- Prelude imports
-import Data.Functor (void)
-import Data.String (fromString)
-import Data.Word (Word16)
 import System.Environment (getEnv)
+import Data.Foldable (traverse_)
+import Data.String (fromString)
 import Control.Exception (try)
+import Data.Functor (void)
+import Data.Word (Word16)
 
 -- Library imports
 import qualified Database.PostgreSQL.Simple as PostgreSQL
@@ -38,7 +39,8 @@ import Dialect.Types
   , Filename
   , Filepath
   , Version
-  )  
+  )
+import Dialect.StatementParser (parse)  
 
 dialect :: Dialect ConnectInfo Connection SqlError
 dialect = Dialect
@@ -102,7 +104,8 @@ createTrackedMigration' conn filename filepath version =
 applyMigration' :: Connection -> Migration -> IO (Either SqlError ())
 applyMigration' conn (Migration { filename, filepath }) = try $ do 
   queryStr <- readFile filepath
-  void $ execute_ conn $ fromString queryStr
+  let migrations = parse queryStr
+  void $ traverse_ (execute_ conn) $ fmap fromString migrations
   putStrLn $ "Migration " ++ filename ++ " has been successfully applied"
 
 markApplied' :: Connection -> Int -> IO (Either SqlError ())
