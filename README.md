@@ -115,7 +115,7 @@ PARMENIDES_PASSWORD=
    Each migrations are ran through a transaction so if any returns an error it will stop and report the error.  
    
 # Status
-Parmenides is on 1.0.0.0 and stable.  
+Parmenides is stable.  
 It does what it's supposed to do and the API is stable.  
 Error message are kind of lack luster but they will get better as time goes on and it is used more.  
 Hopefully, specific errors get reported to issues.  

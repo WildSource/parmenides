@@ -18,3 +18,8 @@
 * Removed the ability to find untracked migrations and track them. Everything goes through mkMigration command
 * Added small helper functions for command argument parsing
 
+## 1.0.0.1 -- 2026-11-22
+
+* Added Dialect.StatementParser module
+* Can now execute multiple statements in a single migration
+
