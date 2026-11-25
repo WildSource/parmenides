@@ -57,7 +57,7 @@ import Text.PrettyPrint
   )
 
 -- User code imports
-import Utility (getTimestamp)
+import qualified Utility as Util
 import Log
   ( reportError
   , reportErrorWithException
@@ -217,7 +217,7 @@ mkMigrationInternal title = do
   Dialect.withSomeDialect someDialect $ \ dialect -> do
     connInfo <- dialect.getConnectionInfo
     dialect.withConnection connInfo $ \ conn -> do
-      timestamp <- getTimestamp
+      timestamp <- Util.getTimestamp
 
       let timestampStr = show timestamp
       let filename = NE.head title ++ "_" ++ timestampStr ++ ".sql"
@@ -257,8 +257,12 @@ migrateCommandInternal = do
     dialect.withConnection connInfo $ \ conn -> do
       -- Retrieve untracked migrations and tracks them
       traverse_
-        (\ (MigrationMatch filepath filename timestamp) -> do            
-            dialect.createTrackedMigration filename filepath 
+        (\ (MigrationMatch filepath filename timestamp) -> do              
+            dialect.createTrackedMigration
+              conn
+              filename
+              filepath
+              timestamp
         )
         migrationMatches
         
@@ -268,6 +272,7 @@ migrateCommandInternal = do
       unless isEmpty $ traverse_ (applyMigration conn dialect) migrations
       when isEmpty $ putStrLn "Every migrations have ALREADY been applied"
   where
+    -- TODO sort the migrations before returning data
     findMigrationData :: IO [MigrationMatch]
     findMigrationData = do
       files <- listDirectory "migrations/"
