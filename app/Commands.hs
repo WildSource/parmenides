@@ -17,6 +17,11 @@ module Commands
   ) where
 
 -- Prelude imports
+import Data.Maybe
+  ( isJust
+  , fromJust
+  )
+import System.Directory (listDirectory)
 import Control.Exception (Exception)
 import Data.Foldable (traverse_)  
 import System.Environment (getEnv)
@@ -35,6 +40,10 @@ import System.Directory
   )
 
 -- library imports
+import Text.Regex
+  ( mkRegex
+  , matchRegex
+  )
 import Control.Monad.Except
   ( ExceptT (..)
   , runExceptT
@@ -58,7 +67,10 @@ import Dialect
   ( Dialect (..)
   , SomeDialect (..)
   )
-import Dialect.Types (Migration (identifier))  
+import Dialect.Types
+  ( Migration (identifier)
+  , MigrationMatch (..)
+  )  
 import Dialect.Flavor
   ( Flavor (..)
   , mkFlavor
@@ -236,16 +248,43 @@ migrateCommand = Command
 
 migrateCommandInternal :: IO ()
 migrateCommandInternal = do
+  migrationMatches <- findMigrationData
   someDialect <- getDialect
   
   Dialect.withSomeDialect someDialect $ \ dialect -> do
-    connInfo <- dialect.getConnectionInfo    
+    connInfo <- dialect.getConnectionInfo
+    
     dialect.withConnection connInfo $ \ conn -> do
+      -- Retrieve untracked migrations and tracks them
+      traverse_
+        (\ (MigrationMatch filepath filename timestamp) -> do            
+            dialect.createTrackedMigration filename filepath 
+        )
+        migrationMatches
+        
+      -- Apply migration
       migrations <- dialect.getOrderedUnappliedMigrations conn
       let isEmpty = null migrations
       unless isEmpty $ traverse_ (applyMigration conn dialect) migrations
       when isEmpty $ putStrLn "Every migrations have ALREADY been applied"
   where
+    findMigrationData :: IO [MigrationMatch]
+    findMigrationData = do
+      files <- listDirectory "migrations/"
+      let maybeMatches = fmap matchMigration files
+      let justMatches = filter isJust maybeMatches
+      pure $ fmap fromJust justMatches
+      
+    matchMigration :: String -> Maybe MigrationMatch
+    matchMigration str =
+      let regex = mkRegex "^(([A-Za-z0-9]+(_[A-Za-z0-9]+)*)_([0-9]{14})[.]sql)$"
+      in
+        case matchRegex regex str of
+          Just [whole, _, _, timestamp] ->
+            Just $ MigrationMatch ("migrations/" ++ whole) whole timestamp
+          _ ->
+            Nothing
+    
     applyMigration
       :: Exception e
       => c

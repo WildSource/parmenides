@@ -29,6 +29,12 @@ import Data.Time
 import Data.Time.Calendar(toGregorian)
 import Data.List.NonEmpty (NonEmpty(..))
 
+-- Library imports
+import Text.Regex
+  ( matchRegex
+  , mkRegex
+  )
+
 headTail :: NonEmpty a -> (a, [a])
 headTail (x:|xs) = (x, xs)
 
@@ -40,6 +46,12 @@ data Timestamp = Timestamp
   , minute :: Int
   , second :: Int
   }
+
+timestampFromString :: String -> Timestamp
+timestampFromString str =
+  let regex = mkRegex "^([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})$"
+      Just [year, month, day, hour, minute, second] = matchRegex regex str
+  in  Timestamp year month day hour minute second
 
 instance Show Timestamp where
   show (Timestamp year month day hour minute second) =

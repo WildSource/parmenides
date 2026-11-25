@@ -88,6 +88,7 @@ executable parmenides
     build-depends:    base ^>=4.20.1.0,
                       mtl ^>=2.3.2,
                       MissingH ^>=1.6.0.3,
+                      regex-compat ^>=0.95.2.2,
                       pretty,
                       time,
                       directory,
