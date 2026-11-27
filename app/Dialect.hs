@@ -56,6 +56,7 @@ data Dialect i c e = Exception e => Dialect
   { getConnectionInfo :: IO i
   , withConnection :: i -> (c -> IO ()) -> IO ()
   , withTransaction :: c -> IO () -> IO ()
+  , getAllMigrationFilepaths :: c -> IO [String]
   , createMigrationTrackingTable :: c -> IO (Either e ())
   , createTrackedMigration
     :: c

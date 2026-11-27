@@ -47,6 +47,7 @@ dialect = Dialect
   { getConnectionInfo = getConnectionInfo'
   , Dialect.withConnection = SQLite.withConnection
   , Dialect.withTransaction = SQLite.withTransaction
+  , getAllMigrationFilepaths = getAllMigrationFilepaths'
   , createMigrationTrackingTable = createMigrationTrackingTable'
   , createTrackedMigration = createTrackedMigration'
   , applyMigration = applyMigration'
@@ -57,6 +58,16 @@ dialect = Dialect
 
 getConnectionInfo' :: IO String
 getConnectionInfo' = getEnv "PARMENIDES_DB_FILE"
+
+getAllMigrationFilepaths' :: Connection -> IO [String]
+getAllMigrationFilepaths' conn = do
+  migrationTuples <- query_ conn
+    [sql|
+        SELECT filepath
+        FROM parmenides_migration
+        ORDER BY version ASC
+        |]
+  pure $ fmap (\ (Only filepath) -> filepath) migrationTuples
 
 createMigrationTrackingTable' :: Connection -> IO (Either FormatError ())
 createMigrationTrackingTable' conn =

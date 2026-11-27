@@ -1,4 +1,5 @@
-{-# LANGUAGE DuplicateRecordFields #-} 
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-} 
 {-|
 Module: Dialect.Types
 Description: Contains various data about Dialects
@@ -46,4 +47,16 @@ data MigrationMatch = MigrationMatch
   , filename :: String
   , timestamp :: String
   } deriving Show
+
+instance Eq MigrationMatch where
+  match == match' =
+    let filepath = match.filepath
+        filepath' = match'.filepath
+    in  filepath == filepath'
+
+instance Ord MigrationMatch where
+  (MigrationMatch _ _ tstmp) <= (MigrationMatch _ _ tstmp') =
+    let numTstmp = (read tstmp :: Integer) 
+        numTstmp' = (read tstmp' :: Integer) 
+    in  numTstmp <= numTstmp'
 

@@ -47,6 +47,7 @@ data Commands = Commands
   , setupCmd :: Command
   , setupTrackingCmd :: Command
   , mkMigrationCmd :: Command
+  , readMigrationsCmd :: Command
   , migrateCmd :: Command
   }
 

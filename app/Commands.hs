@@ -17,6 +17,10 @@ module Commands
   ) where
 
 -- Prelude imports
+import Data.List
+  ( sort
+  , (\\)
+  )
 import Data.Maybe
   ( isJust
   , fromJust
@@ -90,6 +94,7 @@ commands = Commands
   , setupCmd = setupCommand
   , setupTrackingCmd = setupTrackingCommand
   , mkMigrationCmd = mkMigrationCommand
+  , readMigrationsCmd = readMigrationsCommand
   , migrateCmd = migrateCommand
   }
 
@@ -235,6 +240,64 @@ mkMigrationInternal title = do
         Right _ -> 
           pure ()
 
+readMigrationsCommand :: Command
+readMigrationsCommand = Command
+  { name = ""
+  , run = (\ _ -> readMigrationsInternal)
+  , helpDoc =
+      mkHelpDoc
+      "readMigrations"
+      []
+      "Reads the migrations/ dir and tracks missing migrations"
+  }
+  
+readMigrationsInternal :: IO ()
+readMigrationsInternal = do  
+  someDialect <- getDialect
+  Dialect.withSomeDialect someDialect $ \ dialect -> do
+    connInfo <- dialect.getConnectionInfo
+    dialect.withConnection connInfo $ \ conn -> do
+      migrationMatches <- findMigrationData
+      
+      let outerFilepaths = fmap filepath migrationMatches      
+      innerFilepaths <- dialect.getAllMigrationFilepaths conn
+      let untrackedFilepaths = outerFilepaths \\ innerFilepaths
+      
+      let untrackedMigrations = sort $
+            filter
+            (\ (MigrationMatch filepath _ _) ->
+               filepath `elem` untrackedFilepaths
+            )
+            migrationMatches
+            
+      traverse_
+        (\ (MigrationMatch filepath filename timestamp) -> do              
+            dialect.createTrackedMigration
+              conn
+              filename
+              filepath
+              timestamp
+        )
+        untrackedMigrations
+  where
+    findMigrationData :: IO [MigrationMatch]
+    findMigrationData = do
+      files <- listDirectory "migrations/"
+      let maybeMatches = fmap matchMigration files
+      let justMatches = filter isJust maybeMatches
+      pure $ fmap fromJust justMatches
+      
+    matchMigration :: String -> Maybe MigrationMatch
+    matchMigration str =
+      let regex =
+            mkRegex "^(([A-Za-z0-9]+(_[A-Za-z0-9]+)*)_([0-9]{14})[.]sql)$"
+      in
+        case matchRegex regex str of
+          Just [whole, _, _, timestamp] ->
+            Just $ MigrationMatch ("migrations/" ++ whole) whole timestamp
+          _ ->
+            Nothing
+    
 migrateCommand :: Command
 migrateCommand = Command
   { name = "migrate"
@@ -248,48 +311,15 @@ migrateCommand = Command
 
 migrateCommandInternal :: IO ()
 migrateCommandInternal = do
-  migrationMatches <- findMigrationData
   someDialect <- getDialect
-  
   Dialect.withSomeDialect someDialect $ \ dialect -> do
-    connInfo <- dialect.getConnectionInfo
-    
+    connInfo <- dialect.getConnectionInfo    
     dialect.withConnection connInfo $ \ conn -> do
-      -- Retrieve untracked migrations and tracks them
-      traverse_
-        (\ (MigrationMatch filepath filename timestamp) -> do              
-            dialect.createTrackedMigration
-              conn
-              filename
-              filepath
-              timestamp
-        )
-        migrationMatches
-        
-      -- Apply migration
       migrations <- dialect.getOrderedUnappliedMigrations conn
       let isEmpty = null migrations
       unless isEmpty $ traverse_ (applyMigration conn dialect) migrations
       when isEmpty $ putStrLn "Every migrations have ALREADY been applied"
   where
-    -- TODO sort the migrations before returning data
-    findMigrationData :: IO [MigrationMatch]
-    findMigrationData = do
-      files <- listDirectory "migrations/"
-      let maybeMatches = fmap matchMigration files
-      let justMatches = filter isJust maybeMatches
-      pure $ fmap fromJust justMatches
-      
-    matchMigration :: String -> Maybe MigrationMatch
-    matchMigration str =
-      let regex = mkRegex "^(([A-Za-z0-9]+(_[A-Za-z0-9]+)*)_([0-9]{14})[.]sql)$"
-      in
-        case matchRegex regex str of
-          Just [whole, _, _, timestamp] ->
-            Just $ MigrationMatch ("migrations/" ++ whole) whole timestamp
-          _ ->
-            Nothing
-    
     applyMigration
       :: Exception e
       => c
