@@ -23,3 +23,9 @@
 * Added Dialect.StatementParser module
 * Can now execute multiple statements in a single migration
 
+## 1.1.0.0 -- 2026-11-27
+
+* Added new `readMigrations` command
+* Can now track migrations that were not created by the `mkMigration` command.
+  This enables developers who work on the same project to share migrations or use the migrations pulled from remote.
+
