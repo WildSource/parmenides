@@ -96,6 +96,7 @@ toList cmd =
   , cmd.setupCmd
   , cmd.setupTrackingCmd
   , cmd.mkMigrationCmd
+  , cmd.readMigrationsCmd
   , cmd.migrateCmd
   ]    
 

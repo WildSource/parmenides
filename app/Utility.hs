@@ -12,7 +12,6 @@ in the form of functions to call.
 module Utility
   ( Timestamp (year, month, day, hour, minute, second)
   , getTimestamp
-  , timestampFromString
   , headTail
   ) where
 
@@ -24,17 +23,10 @@ import Data.Time
   , getCurrentTimeZone
   , localTimeOfDay
   , TimeOfDay (..)
-  , Year
   , UTCTime (..)
   )
 import Data.Time.Calendar(toGregorian)
 import Data.List.NonEmpty (NonEmpty(..))
-
--- Library imports
-import Text.Regex
-  ( matchRegex
-  , mkRegex
-  )
 
 headTail :: NonEmpty a -> (a, [a])
 headTail (x:|xs) = (x, xs)
@@ -48,26 +40,17 @@ data Timestamp = Timestamp
   , second :: Int
   }
 
-timestampFromString :: String -> Timestamp
-timestampFromString str =
-  let regex = mkRegex "^([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})$"
-      Just times = matchRegex regex str
-      [year, month, day, hour, minute, second] = fmap strToInt times
-  in  Timestamp (fromIntegral year) month day hour minute second
-  where
-    strToInt :: String -> Int
-    strToInt = read
-
 instance Show Timestamp where
   show (Timestamp year month day hour minute second) =
     let fields =
-          [ fromIntegral year
+          [ year
           , month
           , day
           , hour
           , minute
+          , second
           ]
-    in  (foldl (++) "" $ fmap show fields) ++ pad second
+    in  (foldl (++) "" $ fmap pad fields)
     where
       pad :: Int -> String
       pad num

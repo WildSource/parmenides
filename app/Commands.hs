@@ -27,7 +27,7 @@ import Data.Maybe
   )
 import System.Directory (listDirectory)
 import Control.Exception (Exception)
-import Data.Foldable (traverse_)  
+import Data.Foldable (traverse_)
 import System.Environment (getEnv)
 import Data.List (find)
 import Data.List.NonEmpty (NonEmpty)
@@ -242,7 +242,7 @@ mkMigrationInternal title = do
 
 readMigrationsCommand :: Command
 readMigrationsCommand = Command
-  { name = ""
+  { name = "readMigrations"
   , run = (\ _ -> readMigrationsInternal)
   , helpDoc =
       mkHelpDoc
@@ -252,14 +252,14 @@ readMigrationsCommand = Command
   }
   
 readMigrationsInternal :: IO ()
-readMigrationsInternal = do  
+readMigrationsInternal = do
   someDialect <- getDialect
   Dialect.withSomeDialect someDialect $ \ dialect -> do
     connInfo <- dialect.getConnectionInfo
     dialect.withConnection connInfo $ \ conn -> do
       migrationMatches <- findMigrationData
       
-      let outerFilepaths = fmap filepath migrationMatches      
+      let outerFilepaths = fmap filepath migrationMatches
       innerFilepaths <- dialect.getAllMigrationFilepaths conn
       let untrackedFilepaths = outerFilepaths \\ innerFilepaths
       
@@ -270,15 +270,24 @@ readMigrationsInternal = do
             )
             migrationMatches
             
-      traverse_
-        (\ (MigrationMatch filepath filename timestamp) -> do              
-            dialect.createTrackedMigration
-              conn
-              filename
-              filepath
-              timestamp
-        )
-        untrackedMigrations
+      let isEmpty = null untrackedMigrations
+      when isEmpty $ putStrLn "No new migrations have been found"
+      unless isEmpty $ do        
+        result <- runExceptT $ traverse_
+          (\ (MigrationMatch filepath filename timestamp) -> do
+              ExceptT $
+                dialect.createTrackedMigration
+                conn
+                filename
+                filepath
+                timestamp
+          )
+          untrackedMigrations
+
+        either
+          (reportErrorWithException "Reading migration failed")
+          (\ _ -> putStrLn "Migration(s) have been added successfully")
+          result
   where
     findMigrationData :: IO [MigrationMatch]
     findMigrationData = do
@@ -350,6 +359,7 @@ getDialect = do
     Just flavor ->
       case flavor of 
         SQLite -> pure $ SomeDialect DS.dialect
+
         PostgreSQL -> pure $ SomeDialect DP.dialect
         MySQL -> undefined
         

@@ -27,4 +27,3 @@ cabal.project.local~
 migrations/
 parmenides.env
 
-parmenides.env
