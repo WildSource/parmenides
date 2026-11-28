@@ -125,7 +125,7 @@ The `readMigrations` command is meant to add third party migrations to the track
 
 Meaning that if you are working with other developers and you pull the migrations made by another dev, (meaning not created by *YOUR* `mkMigration` command) you will be able to track and use them.  
 
-This also means that *YOU*, the developer is also able to manually create migrations files without the command (mkMigration). However, that is extremely *NOT* recommended. This feature was previously removed to make sure that only Parmenides could control the creation and format of migration files which avoided bugs or defective migrations (and also less work from the dev itself). The command is only meant to add migrations that comes from places other than your own othewise, collaborative work would be impossible.
+This also means that *YOU*, the developer is also able to manually create migrations files without the command (mkMigration). However, that is extremely *NOT* recommended. This feature was previously removed to make sure that only Parmenides could control the creation and format of migration files which avoided bugs or defective migrations (and also less work from the dev itself). The command is only meant to add migrations that comes from places other than your own otherwise, collaborative work would be impossible.
 	
 # Status
 Parmenides is stable.  
