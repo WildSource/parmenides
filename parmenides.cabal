@@ -20,7 +20,7 @@ name:               parmenides
 -- PVP summary:     +-+------- breaking API changes
 --                  | | +----- non-breaking API additions
 --                  | | | +--- code changes with no API change
-version:            1.0.0.1
+version:            1.1.0.0
 
 -- A short (one-line) description of the package.
 synopsis:           A database migration system written in Haskell
@@ -88,6 +88,7 @@ executable parmenides
     build-depends:    base ^>=4.20.1.0,
                       mtl ^>=2.3.2,
                       MissingH ^>=1.6.0.3,
+                      regex-compat ^>=0.95.2.2,
                       pretty,
                       time,
                       directory,

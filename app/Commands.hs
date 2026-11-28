@@ -17,8 +17,17 @@ module Commands
   ) where
 
 -- Prelude imports
+import Data.List
+  ( sort
+  , (\\)
+  )
+import Data.Maybe
+  ( isJust
+  , fromJust
+  )
+import System.Directory (listDirectory)
 import Control.Exception (Exception)
-import Data.Foldable (traverse_)  
+import Data.Foldable (traverse_)
 import System.Environment (getEnv)
 import Data.List (find)
 import Data.List.NonEmpty (NonEmpty)
@@ -35,6 +44,10 @@ import System.Directory
   )
 
 -- library imports
+import Text.Regex
+  ( mkRegex
+  , matchRegex
+  )
 import Control.Monad.Except
   ( ExceptT (..)
   , runExceptT
@@ -48,7 +61,7 @@ import Text.PrettyPrint
   )
 
 -- User code imports
-import Utility (getTimestamp)
+import qualified Utility as Util
 import Log
   ( reportError
   , reportErrorWithException
@@ -58,7 +71,10 @@ import Dialect
   ( Dialect (..)
   , SomeDialect (..)
   )
-import Dialect.Types (Migration (identifier))  
+import Dialect.Types
+  ( Migration (identifier)
+  , MigrationMatch (..)
+  )  
 import Dialect.Flavor
   ( Flavor (..)
   , mkFlavor
@@ -78,6 +94,7 @@ commands = Commands
   , setupCmd = setupCommand
   , setupTrackingCmd = setupTrackingCommand
   , mkMigrationCmd = mkMigrationCommand
+  , readMigrationsCmd = readMigrationsCommand
   , migrateCmd = migrateCommand
   }
 
@@ -205,7 +222,7 @@ mkMigrationInternal title = do
   Dialect.withSomeDialect someDialect $ \ dialect -> do
     connInfo <- dialect.getConnectionInfo
     dialect.withConnection connInfo $ \ conn -> do
-      timestamp <- getTimestamp
+      timestamp <- Util.getTimestamp
 
       let timestampStr = show timestamp
       let filename = NE.head title ++ "_" ++ timestampStr ++ ".sql"
@@ -223,6 +240,73 @@ mkMigrationInternal title = do
         Right _ -> 
           pure ()
 
+readMigrationsCommand :: Command
+readMigrationsCommand = Command
+  { name = "readMigrations"
+  , run = (\ _ -> readMigrationsInternal)
+  , helpDoc =
+      mkHelpDoc
+      "readMigrations"
+      []
+      "Reads the migrations/ dir and tracks missing migrations"
+  }
+  
+readMigrationsInternal :: IO ()
+readMigrationsInternal = do
+  someDialect <- getDialect
+  Dialect.withSomeDialect someDialect $ \ dialect -> do
+    connInfo <- dialect.getConnectionInfo
+    dialect.withConnection connInfo $ \ conn -> do
+      migrationMatches <- findMigrationData
+      
+      let outerFilepaths = fmap filepath migrationMatches
+      innerFilepaths <- dialect.getAllMigrationFilepaths conn
+      let untrackedFilepaths = outerFilepaths \\ innerFilepaths
+      
+      let untrackedMigrations = sort $
+            filter
+            (\ (MigrationMatch filepath _ _) ->
+               filepath `elem` untrackedFilepaths
+            )
+            migrationMatches
+            
+      let isEmpty = null untrackedMigrations
+      when isEmpty $ putStrLn "No new migrations have been found"
+      unless isEmpty $ do        
+        result <- runExceptT $ traverse_
+          (\ (MigrationMatch filepath filename timestamp) -> do
+              ExceptT $
+                dialect.createTrackedMigration
+                conn
+                filename
+                filepath
+                timestamp
+          )
+          untrackedMigrations
+
+        either
+          (reportErrorWithException "Reading migration failed")
+          (\ _ -> putStrLn "Migration(s) have been added successfully")
+          result
+  where
+    findMigrationData :: IO [MigrationMatch]
+    findMigrationData = do
+      files <- listDirectory "migrations/"
+      let maybeMatches = fmap matchMigration files
+      let justMatches = filter isJust maybeMatches
+      pure $ fmap fromJust justMatches
+      
+    matchMigration :: String -> Maybe MigrationMatch
+    matchMigration str =
+      let regex =
+            mkRegex "^(([A-Za-z0-9]+(_[A-Za-z0-9]+)*)_([0-9]{14})[.]sql)$"
+      in
+        case matchRegex regex str of
+          Just [whole, _, _, timestamp] ->
+            Just $ MigrationMatch ("migrations/" ++ whole) whole timestamp
+          _ ->
+            Nothing
+    
 migrateCommand :: Command
 migrateCommand = Command
   { name = "migrate"
@@ -237,7 +321,6 @@ migrateCommand = Command
 migrateCommandInternal :: IO ()
 migrateCommandInternal = do
   someDialect <- getDialect
-  
   Dialect.withSomeDialect someDialect $ \ dialect -> do
     connInfo <- dialect.getConnectionInfo    
     dialect.withConnection connInfo $ \ conn -> do
@@ -276,6 +359,7 @@ getDialect = do
     Just flavor ->
       case flavor of 
         SQLite -> pure $ SomeDialect DS.dialect
+
         PostgreSQL -> pure $ SomeDialect DP.dialect
         MySQL -> undefined
         

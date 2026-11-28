@@ -23,7 +23,6 @@ import Data.Time
   , getCurrentTimeZone
   , localTimeOfDay
   , TimeOfDay (..)
-  , Year
   , UTCTime (..)
   )
 import Data.Time.Calendar(toGregorian)
@@ -33,7 +32,7 @@ headTail :: NonEmpty a -> (a, [a])
 headTail (x:|xs) = (x, xs)
 
 data Timestamp = Timestamp
-  { year :: Year
+  { year :: Int
   , month :: Int
   , day :: Int
   , hour :: Int
@@ -44,13 +43,14 @@ data Timestamp = Timestamp
 instance Show Timestamp where
   show (Timestamp year month day hour minute second) =
     let fields =
-          [ fromIntegral year
+          [ year
           , month
           , day
           , hour
           , minute
+          , second
           ]
-    in  (foldl (++) "" $ fmap show fields) ++ pad second
+    in  (foldl (++) "" $ fmap pad fields)
     where
       pad :: Int -> String
       pad num
@@ -72,7 +72,7 @@ getTimestamp = do
   let minutes = todMin localTime
   let second = takeSeconds $ todSec localTime
   
-  pure $ Timestamp year month day hour minutes second
+  pure $ Timestamp (fromIntegral year) month day hour minutes second
   where
     takeSeconds :: Pico -> Int
     takeSeconds = (read . takeWhile (\ c -> c /= '.') . show)

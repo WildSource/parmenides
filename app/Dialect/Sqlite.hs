@@ -17,7 +17,6 @@ module Dialect.Sqlite
 import Data.Foldable (traverse_)
 import Data.String (fromString)
 import Control.Exception (try)
-import Data.Functor (void)
 
 -- Library imports
 import Database.SQLite.Simple.QQ (sql)
@@ -47,6 +46,7 @@ dialect = Dialect
   { getConnectionInfo = getConnectionInfo'
   , Dialect.withConnection = SQLite.withConnection
   , Dialect.withTransaction = SQLite.withTransaction
+  , getAllMigrationFilepaths = getAllMigrationFilepaths'
   , createMigrationTrackingTable = createMigrationTrackingTable'
   , createTrackedMigration = createTrackedMigration'
   , applyMigration = applyMigration'
@@ -58,9 +58,19 @@ dialect = Dialect
 getConnectionInfo' :: IO String
 getConnectionInfo' = getEnv "PARMENIDES_DB_FILE"
 
+getAllMigrationFilepaths' :: Connection -> IO [String]
+getAllMigrationFilepaths' conn = do
+  migrationTuples <- query_ conn
+    [sql|
+        SELECT filepath
+        FROM parmenides_migration
+        ORDER BY version ASC
+        |]
+  pure $ fmap (\ (Only filepath) -> filepath) migrationTuples
+
 createMigrationTrackingTable' :: Connection -> IO (Either FormatError ())
 createMigrationTrackingTable' conn =
-  try $ void $
+  try $
   execute_ conn
   [sql|
       CREATE TABLE IF NOT EXISTS parmenides_migration (
@@ -79,7 +89,7 @@ createTrackedMigration'
   -> Version
   -> IO (Either FormatError ())
 createTrackedMigration' conn filename filepath version =
-  try $ void $ execute conn
+  try $ execute conn
   [sql|
       INSERT INTO parmenides_migration (filename, filepath, version, applied)
       VALUES (?, ?, ?, ?)
@@ -95,7 +105,7 @@ applyMigration' conn migration = do
 
 markApplied' :: Connection -> Int -> IO (Either FormatError ())
 markApplied' conn identifier = do
-  try $ void $
+  try $
     execute
     conn
     [sql|

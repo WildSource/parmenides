@@ -47,6 +47,7 @@ dialect = Dialect
   { getConnectionInfo = getConnectInfo'
   , withConnection = PostgreSQL.withConnect
   , Dialect.withTransaction = PostgreSQL.withTransaction
+  , getAllMigrationFilepaths = getAllMigrationFilepaths'
   , createMigrationTrackingTable = createMigrationTrackingTable'
   , createTrackedMigration = createTrackedMigration'
   , applyMigration = applyMigration'
@@ -69,6 +70,16 @@ getConnectInfo' = do
     user
     password
     name
+
+getAllMigrationFilepaths' :: Connection -> IO [String]
+getAllMigrationFilepaths' conn = do
+  migrationTuples <- query_ conn
+    [sql|
+        SELECT filepath
+        FROM parmenides_migration
+        ORDER BY version ASC
+        |]
+  pure $ fmap (\ (Only filepath) -> filepath) migrationTuples
 
 createMigrationTrackingTable' :: Connection -> IO (Either SqlError ())
 createMigrationTrackingTable' conn =

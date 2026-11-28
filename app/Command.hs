@@ -47,6 +47,7 @@ data Commands = Commands
   , setupCmd :: Command
   , setupTrackingCmd :: Command
   , mkMigrationCmd :: Command
+  , readMigrationsCmd :: Command
   , migrateCmd :: Command
   }
 
@@ -95,6 +96,7 @@ toList cmd =
   , cmd.setupCmd
   , cmd.setupTrackingCmd
   , cmd.mkMigrationCmd
+  , cmd.readMigrationsCmd
   , cmd.migrateCmd
   ]    
 

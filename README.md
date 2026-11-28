@@ -38,6 +38,7 @@ Migrations are forward only, this means that if you mess up, you make another mi
 
 # Usage
 The help command displays a list of commands in order of execution in a workflow.
+(Except for readMigrations)
 
 ```
 Usage: parmenides CMD [ARG ...]
@@ -46,6 +47,7 @@ Commands:
   setup DATABASE      Creates a migrations/ dir and a db specific env file
   setupTracking       Create a table in the database to track migrations
   mkMigration TITLE   Creates a migration file to migrations/ and tracks it
+  readMigrations      Reads the migrations/ dir and tracks missing migrations
   migrate             Runs unapplied migrations tracked by Parmenides
 ```
 
@@ -103,6 +105,8 @@ PARMENIDES_PASSWORD=
    It will create a migration file in *migrations/* and add a database entry so that parmenides can track it.  
    The migration file is an ordinary sql file so all of the ordinary database and sql rule applies.  
    A migration's filename is in the form `TITLE_YYYYMMDDHHmmss.sql`.  
+   It is very important to respect the filename structure of a migration file.  
+   However, as long as you use the `mkMigration` command you are good.  
    Replace *TITLE* by any name. They have to be connected tho using `"CREATE FRUIT TABLE"` will not work and throw an error.  
    Rather use `CREATE_FRUIT_TABLE` since the underscore connect these words to form only one and do not use double quotes.  
    Capitalized letters are used in the examples but any alphanumeric is accepted.  
@@ -114,9 +118,18 @@ PARMENIDES_PASSWORD=
    Parmenides gets migrations that have not been applied yet and applies them sequentially in an ordered manner.  
    Each migrations are ran through a transaction so if any returns an error it will stop and report the error.  
    
+### Read migrations command
+
+This command is not needed when doing solo development or using migrations created by the `mkMigration` command.  
+The `readMigrations` command is meant to add third party migrations to the tracking table.   
+
+Meaning that if you are working with other developers and you pull the migrations made by another dev, (meaning not created by *YOUR* `mkMigration` command) you will be able to track and use them.  
+
+This also means that *YOU*, the developer is also able to manually create migrations files without the command (mkMigration). However, that is extremely *NOT* recommended. This feature was previously removed to make sure that only Parmenides could control the creation and format of migration files which avoided bugs or defective migrations (and also less work from the dev itself). The command is only meant to add migrations that comes from places other than your own othewise, collaborative work would be impossible.
+	
 # Status
 Parmenides is stable.  
 It does what it's supposed to do and the API is stable.  
 Error message are kind of lack luster but they will get better as time goes on and it is used more.  
 Hopefully, specific errors get reported to issues.  
-
+	

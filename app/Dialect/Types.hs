@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-} 
 {-|
 Module: Dialect.Types
 Description: Contains various data about Dialects
@@ -11,6 +13,7 @@ When parmenides fetches data from the database the rows get converted into a Mig
 -}
 module Dialect.Types
   ( Migration (..)
+  , MigrationMatch (..)
   , Filename
   , Filepath
   , Version
@@ -33,4 +36,27 @@ data Migration = Migration
   , version :: Int
   , applied :: Bool
   } deriving Show
+
+{-
+This type is just to enforce the structure of the regex match
+when matching the migration filenames.
+It's used in the migrate command.
+-}
+data MigrationMatch = MigrationMatch
+  { filepath :: String
+  , filename :: String
+  , timestamp :: String
+  } deriving Show
+
+instance Eq MigrationMatch where
+  match == match' =
+    let filepath = match.filepath
+        filepath' = match'.filepath
+    in  filepath == filepath'
+
+instance Ord MigrationMatch where
+  (MigrationMatch _ _ tstmp) <= (MigrationMatch _ _ tstmp') =
+    let numTstmp = (read tstmp :: Integer) 
+        numTstmp' = (read tstmp' :: Integer) 
+    in  numTstmp <= numTstmp'
 
